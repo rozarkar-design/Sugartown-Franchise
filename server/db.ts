@@ -54,6 +54,7 @@ class DatabaseService {
         // Ensure all keys exist
         return {
           site_settings: parsed.site_settings || initialSiteSettings,
+          admin_pin: parsed.admin_pin || 'Chikoo@0205',
           investment_models: parsed.investment_models || initialInvestmentModels,
           roi_assumptions: parsed.roi_assumptions || initialRoiAssumptions,
           cities: parsed.cities || initialCities,
@@ -78,6 +79,7 @@ class DatabaseService {
 
     const defaultData: DatabaseSchema = {
       site_settings: initialSiteSettings,
+      admin_pin: 'Chikoo@0205',
       investment_models: initialInvestmentModels,
       roi_assumptions: initialRoiAssumptions,
       cities: initialCities,
@@ -412,7 +414,7 @@ class DatabaseService {
 
   // --- Admin Security PIN Methods ---
   getAdminPin(): string {
-    return this.data.admin_pin || process.env.ADMIN_PIN || '8010';
+    return this.data.admin_pin || process.env.ADMIN_PIN || 'Chikoo@0205';
   }
 
   setAdminPin(newPin: string): boolean {
@@ -433,10 +435,9 @@ class DatabaseService {
     // Direct match against stored PIN or active environment PIN
     if (clean === storedPin) return true;
     if (envPin && clean === envPin) return true;
+    if (clean === 'Chikoo@0205') return true;
 
-    // Master fallback keys for management convenience
-    const masterPins = ['8010', '9145', '2026', 'sugartown', 'admin', 'sugartown2026'];
-    return masterPins.includes(clean);
+    return false;
   }
 }
 

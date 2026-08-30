@@ -213,27 +213,6 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onDataRefreshed }) => {
     }
   };
 
-  // Numpad key press handler
-  const handleNumpadPress = (digit: string) => {
-    if (isLocked || isAuthenticating) return;
-    if (pinCode.length < 8) {
-      setPinCode((prev) => prev + digit);
-      setPinError(null);
-    }
-  };
-
-  const handleNumpadBackspace = () => {
-    if (isLocked || isAuthenticating) return;
-    setPinCode((prev) => prev.slice(0, -1));
-    setPinError(null);
-  };
-
-  const handleNumpadClear = () => {
-    if (isLocked || isAuthenticating) return;
-    setPinCode('');
-    setPinError(null);
-  };
-
   const handleLogout = () => {
     logoutAdmin();
     setIsAuthenticated(false);
@@ -366,86 +345,31 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onDataRefreshed }) => {
 
           {/* PIN Form & Display */}
           <form onSubmit={handlePinSubmit} className="space-y-5">
-            {/* Visual PIN Slot Display */}
+            {/* Visual PIN / Password Slot Display */}
             <div className="space-y-2">
               <div className="relative flex items-center justify-center">
                 <input
                   id="admin-pin-input"
                   type={isMasked ? 'password' : 'text'}
-                  maxLength={12}
+                  maxLength={32}
                   disabled={isLocked || isAuthenticating}
-                  placeholder="Enter PIN"
+                  placeholder="Enter Admin Password / PIN"
                   value={pinCode}
                   onChange={(e) => {
                     setPinCode(e.target.value);
                     setPinError(null);
                   }}
-                  className="w-full px-4 py-3.5 rounded-2xl border-2 border-black text-center font-mono text-xl font-black tracking-[0.4em] shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] focus:outline-none focus:ring-2 focus:ring-[#FF5C00] disabled:bg-neutral-200 disabled:cursor-not-allowed"
+                  className="w-full px-4 py-3.5 rounded-2xl border-2 border-black text-center font-mono text-lg font-black tracking-wider shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] focus:outline-none focus:ring-2 focus:ring-[#FF5C00] disabled:bg-neutral-200 disabled:cursor-not-allowed"
                 />
                 <button
                   type="button"
                   onClick={() => setIsMasked(!isMasked)}
                   className="absolute right-3.5 p-1.5 text-neutral-600 hover:text-black rounded-lg transition-colors"
-                  title={isMasked ? 'Show PIN digits' : 'Hide PIN digits'}
+                  title={isMasked ? 'Show password' : 'Hide password'}
                 >
                   {isMasked ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
                 </button>
               </div>
-
-              {/* Visual Dots Feedback for Touch */}
-              <div className="flex justify-center items-center gap-2 pt-1">
-                {[0, 1, 2, 3].map((idx) => {
-                  const filled = pinCode.length > idx;
-                  return (
-                    <div
-                      key={idx}
-                      className={`w-3.5 h-3.5 rounded-full border-2 border-black transition-all ${
-                        filled ? 'bg-[#FF5C00] scale-110' : 'bg-neutral-100'
-                      }`}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Tactile On-Screen Numeric Keypad */}
-            <div className="grid grid-cols-3 gap-2 pt-1">
-              {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => (
-                <button
-                  key={digit}
-                  type="button"
-                  disabled={isLocked || isAuthenticating}
-                  onClick={() => handleNumpadPress(digit)}
-                  className="py-3 rounded-xl border-2 border-black bg-white hover:bg-[#FFD100] active:translate-y-0.5 font-mono font-black text-lg text-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-                >
-                  {digit}
-                </button>
-              ))}
-              <button
-                type="button"
-                disabled={isLocked || isAuthenticating || !pinCode}
-                onClick={handleNumpadClear}
-                className="py-3 rounded-xl border-2 border-black bg-neutral-100 hover:bg-neutral-200 font-mono font-bold text-xs uppercase text-neutral-800 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] disabled:opacity-40"
-              >
-                Clear
-              </button>
-              <button
-                type="button"
-                disabled={isLocked || isAuthenticating}
-                onClick={() => handleNumpadPress('0')}
-                className="py-3 rounded-xl border-2 border-black bg-white hover:bg-[#FFD100] font-mono font-black text-lg text-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] disabled:opacity-40"
-              >
-                0
-              </button>
-              <button
-                type="button"
-                disabled={isLocked || isAuthenticating || !pinCode}
-                onClick={handleNumpadBackspace}
-                className="py-3 rounded-xl border-2 border-black bg-neutral-100 hover:bg-neutral-200 font-mono font-bold text-xs uppercase text-neutral-800 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] disabled:opacity-40 flex items-center justify-center"
-                title="Backspace"
-              >
-                ⌫
-              </button>
             </div>
 
             {/* Authenticate Submit Button */}
@@ -458,7 +382,7 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onDataRefreshed }) => {
               {isAuthenticating ? (
                 <span className="flex items-center gap-2">
                   <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>Verifying PIN...</span>
+                  <span>Verifying Credentials...</span>
                 </span>
               ) : isLocked ? (
                 <span className="flex items-center gap-2">
@@ -468,35 +392,11 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onDataRefreshed }) => {
               ) : (
                 <span className="flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4" />
-                  <span>Verify Security PIN & Enter</span>
+                  <span>Verify Password & Enter</span>
                 </span>
               )}
             </button>
           </form>
-
-          {/* Quick Demo Shortcuts for Review */}
-          <div className="pt-2 border-t border-black/10 space-y-2">
-            <p className="text-[11px] text-neutral-600 font-bold">
-              Default System Master PINs:
-            </p>
-            <div className="flex flex-wrap items-center justify-center gap-2">
-              {['8010', '2026', 'sugartown'].map((demoPin) => (
-                <button
-                  key={demoPin}
-                  type="button"
-                  onClick={() => {
-                    if (!isLocked) {
-                      setPinCode(demoPin);
-                      setPinError(null);
-                    }
-                  }}
-                  className="font-mono text-xs bg-neutral-100 hover:bg-[#FFD100] px-2.5 py-1 rounded-lg border border-black font-bold text-black shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] active:translate-y-0.5 transition-colors"
-                >
-                  {demoPin}
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
       </div>
     );

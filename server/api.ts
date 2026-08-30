@@ -5,7 +5,7 @@ import { sendLeadNotificationEmail } from './email';
 export const apiRouter = Router();
 
 // Middleware for Admin authentication check
-const ADMIN_SECRET = process.env.ADMIN_SECRET_KEY || 'sugartown_admin_2026';
+const ADMIN_SECRET = process.env.ADMIN_SECRET_KEY || 'Chikoo@0205';
 
 // ---------------------------------------------------------------------------
 // BRUTE FORCE & RATE LIMITING STATE FOR ADMIN PIN
@@ -386,26 +386,10 @@ apiRouter.post('/admin/auth/change-pin', requireAdminAuth, (req: Request, res: R
 
 apiRouter.post('/admin/auth/login', (req: Request, res: Response) => {
   const { email, password } = req.body;
-  // Secure server check: supports corporate email and master key
   const validEmail = (email || '').trim().toLowerCase();
-  const isMasterKey = password === ADMIN_SECRET || password === 'sugartown2026' || password === 'admin123';
+  const isValidPassword = password === ADMIN_SECRET || db.validateAdminPin(password);
 
-  if ((validEmail.includes('sugartown') || validEmail === 'admin@sugartown.in' || validEmail === 'rozarkar@gmail.com') && isMasterKey) {
-    const token = `sug_tok_${Buffer.from(`${validEmail}:${Date.now()}`).toString('base64')}`;
-    return res.json({
-      success: true,
-      token,
-      user: {
-        id: 'admin-1',
-        email: validEmail,
-        name: 'Sugartown Corporate Administrator',
-        role: 'super_admin',
-      },
-    });
-  }
-
-  // Quick fallback for demo convenience if password is "sugartown2026"
-  if (password === 'sugartown2026' || password === ADMIN_SECRET) {
+  if (isValidPassword) {
     const token = `sug_tok_${Buffer.from(`${validEmail || 'admin'}:${Date.now()}`).toString('base64')}`;
     return res.json({
       success: true,
@@ -419,7 +403,7 @@ apiRouter.post('/admin/auth/login', (req: Request, res: Response) => {
     });
   }
 
-  return res.status(401).json({ error: 'Invalid administrative email or password.' });
+  return res.status(401).json({ error: 'Invalid administrative credentials.' });
 });
 
 apiRouter.get('/admin/stats', requireAdminAuth, (req: Request, res: Response) => {
