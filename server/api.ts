@@ -7,22 +7,104 @@ export const apiRouter = Router();
 // Middleware for Admin authentication check
 const ADMIN_SECRET = process.env.ADMIN_SECRET_KEY || 'sugartown_admin_2026';
 
-function requireAdminAuth(req: Request, res: Response, next: NextFunction) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    // Also check cookie or query token
-    const queryToken = req.query.token as string;
-    if (queryToken && (queryToken === ADMIN_SECRET || queryToken.startsWith('sug_tok_'))) {
-      return next();
-    }
-    return res.status(401).json({ error: 'Unauthorized. Admin credentials required.' });
+// ---------------------------------------------------------------------------
+// BRUTE FORCE & RATE LIMITING STATE FOR ADMIN PIN
+// ---------------------------------------------------------------------------
+interface PinAttemptRecord {
+  failedAttempts: number;
+  lockedUntil: number | null;
+  lastAttemptAt: number;
+}
+
+const pinAttemptStore = new Map<string, PinAttemptRecord>();
+const MAX_PIN_FAILURES = 5;
+const PIN_LOCKOUT_MS = 60 * 1000; // 60 seconds lockout on 5 consecutive failures
+
+function getClientIdentifier(req: Request): string {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string') {
+    return forwarded.split(',')[0].trim();
+  }
+  return req.ip || req.socket.remoteAddress || 'client_default';
+}
+
+function getLockoutStatus(identifier: string) {
+  const record = pinAttemptStore.get(identifier);
+  if (!record) {
+    return { isLocked: false, lockoutSeconds: 0, attemptsRemaining: MAX_PIN_FAILURES };
   }
 
-  const token = authHeader.split(' ')[1];
+  const now = Date.now();
+  if (record.lockedUntil && record.lockedUntil > now) {
+    const lockoutSeconds = Math.ceil((record.lockedUntil - now) / 1000);
+    return { isLocked: true, lockoutSeconds, attemptsRemaining: 0 };
+  }
+
+  // Lockout has elapsed, reset counter
+  if (record.lockedUntil && record.lockedUntil <= now) {
+    pinAttemptStore.delete(identifier);
+    return { isLocked: false, lockoutSeconds: 0, attemptsRemaining: MAX_PIN_FAILURES };
+  }
+
+  const attemptsRemaining = Math.max(0, MAX_PIN_FAILURES - record.failedAttempts);
+  return { isLocked: false, lockoutSeconds: 0, attemptsRemaining };
+}
+
+function recordFailedPinAttempt(identifier: string) {
+  const now = Date.now();
+  const record = pinAttemptStore.get(identifier) || {
+    failedAttempts: 0,
+    lockedUntil: null,
+    lastAttemptAt: now,
+  };
+
+  record.failedAttempts += 1;
+  record.lastAttemptAt = now;
+
+  if (record.failedAttempts >= MAX_PIN_FAILURES) {
+    record.lockedUntil = now + PIN_LOCKOUT_MS;
+  }
+
+  pinAttemptStore.set(identifier, record);
+  return record;
+}
+
+function resetPinAttempts(identifier: string) {
+  pinAttemptStore.delete(identifier);
+}
+
+function requireAdminAuth(req: Request, res: Response, next: NextFunction) {
+  const authHeader = req.headers.authorization;
+  let token = '';
+
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    token = authHeader.split(' ')[1];
+  } else if (req.query.token && typeof req.query.token === 'string') {
+    token = req.query.token;
+  }
+
+  if (!token) {
+    return res.status(401).json({ error: 'Unauthorized. Admin PIN or credentials required.' });
+  }
+
   if (token === ADMIN_SECRET || token.startsWith('sug_tok_')) {
     return next();
   }
-  return res.status(401).json({ error: 'Invalid or expired administrative token.' });
+
+  if (token.startsWith('sug_pin_tok_')) {
+    try {
+      const payloadStr = Buffer.from(token.replace('sug_pin_tok_', ''), 'base64').toString('utf-8');
+      const payload = JSON.parse(payloadStr);
+      if (payload.exp && payload.exp < Date.now()) {
+        return res.status(401).json({ error: 'Admin session expired. Please re-authenticate with your PIN.' });
+      }
+      return next();
+    } catch {
+      return res.status(401).json({ error: 'Invalid admin PIN session token.' });
+    }
+  }
+
+  return res.status(401).json({ error: 'Invalid or expired administrative credentials.' });
 }
 
 // ---------------------------------------------------------------------------
@@ -192,8 +274,115 @@ apiRouter.post('/submit-franchise-inquiry', async (req: Request, res: Response) 
 });
 
 // ---------------------------------------------------------------------------
-// ADMIN PROTECTED ENDPOINTS
+// ADMIN PIN & AUTHENTICATION ENDPOINTS
 // ---------------------------------------------------------------------------
+
+// Check current PIN security status (e.g. lockout state, remaining attempts)
+apiRouter.get('/admin/auth/pin-status', (req: Request, res: Response) => {
+  const clientId = getClientIdentifier(req);
+  const status = getLockoutStatus(clientId);
+  res.json({
+    isLocked: status.isLocked,
+    lockoutSecondsRemaining: status.lockoutSeconds,
+    attemptsRemaining: status.attemptsRemaining,
+    maxAttempts: MAX_PIN_FAILURES,
+  });
+});
+
+// Secure PIN Verification with Brute-Force Lockout Defense
+apiRouter.post('/admin/auth/pin-verify', (req: Request, res: Response) => {
+  const clientId = getClientIdentifier(req);
+  const status = getLockoutStatus(clientId);
+
+  if (status.isLocked) {
+    return res.status(429).json({
+      error: `Security Lockout: Too many failed PIN attempts. Please wait ${status.lockoutSeconds} seconds.`,
+      isLocked: true,
+      lockoutSecondsRemaining: status.lockoutSeconds,
+      attemptsRemaining: 0,
+    });
+  }
+
+  const { pin } = req.body;
+  if (!pin || typeof pin !== 'string') {
+    return res.status(400).json({ error: 'Please enter your Security Access PIN.' });
+  }
+
+  const isValid = db.validateAdminPin(pin);
+
+  if (!isValid) {
+    const updatedRecord = recordFailedPinAttempt(clientId);
+    const isNowLocked = Boolean(updatedRecord.lockedUntil && updatedRecord.lockedUntil > Date.now());
+    const remaining = Math.max(0, MAX_PIN_FAILURES - updatedRecord.failedAttempts);
+
+    if (isNowLocked) {
+      const lockoutSeconds = Math.ceil((updatedRecord.lockedUntil! - Date.now()) / 1000);
+      return res.status(429).json({
+        error: `Security Lockout: 5 consecutive failed attempts. System locked for ${lockoutSeconds} seconds.`,
+        isLocked: true,
+        lockoutSecondsRemaining: lockoutSeconds,
+        attemptsRemaining: 0,
+      });
+    }
+
+    return res.status(401).json({
+      error: `Incorrect security PIN. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining before temporary lockout.`,
+      isLocked: false,
+      lockoutSecondsRemaining: 0,
+      attemptsRemaining: remaining,
+    });
+  }
+
+  // Valid PIN: Reset failed counter
+  resetPinAttempts(clientId);
+
+  const expiresAt = Date.now() + 8 * 3600 * 1000; // 8 hours session
+  const payload = {
+    u: 'admin@sugartown.in',
+    r: 'super_admin',
+    n: 'Sugartown Corporate Administrator',
+    iat: Date.now(),
+    exp: expiresAt,
+  };
+  const token = `sug_pin_tok_${Buffer.from(JSON.stringify(payload)).toString('base64')}`;
+
+  return res.json({
+    success: true,
+    token,
+    expiresAt,
+    user: {
+      id: 'admin-1',
+      email: 'admin@sugartown.in',
+      name: 'Sugartown Corporate Administrator',
+      role: 'super_admin',
+      authenticated_via: 'security_pin',
+    },
+    message: 'Access granted. Welcome to Sugartown Administration.',
+  });
+});
+
+// Update Security PIN (Requires authorized session + current PIN confirmation)
+apiRouter.post('/admin/auth/change-pin', requireAdminAuth, (req: Request, res: Response) => {
+  const { currentPin, newPin } = req.body;
+
+  if (!currentPin || !db.validateAdminPin(currentPin)) {
+    return res.status(400).json({ error: 'Current security PIN verification failed.' });
+  }
+
+  if (!newPin || typeof newPin !== 'string' || newPin.trim().length < 4 || newPin.trim().length > 12) {
+    return res.status(400).json({ error: 'New PIN must be between 4 and 12 digits or alphanumeric characters.' });
+  }
+
+  const success = db.setAdminPin(newPin.trim());
+  if (!success) {
+    return res.status(500).json({ error: 'Failed to update security PIN.' });
+  }
+
+  return res.json({
+    success: true,
+    message: 'Security Access PIN has been successfully updated.',
+  });
+});
 
 apiRouter.post('/admin/auth/login', (req: Request, res: Response) => {
   const { email, password } = req.body;

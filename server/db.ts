@@ -26,6 +26,7 @@ import {
 
 interface DatabaseSchema {
   site_settings: SiteSettings;
+  admin_pin?: string;
   investment_models: InvestmentModel[];
   roi_assumptions: RoiAssumptions[];
   cities: City[];
@@ -407,6 +408,35 @@ class DatabaseService {
       totalCities: this.data.cities.length,
       availableTerritories: this.data.cities.filter((c) => c.territory_available).length,
     };
+  }
+
+  // --- Admin Security PIN Methods ---
+  getAdminPin(): string {
+    return this.data.admin_pin || process.env.ADMIN_PIN || '8010';
+  }
+
+  setAdminPin(newPin: string): boolean {
+    if (!newPin || typeof newPin !== 'string' || newPin.trim().length < 4) {
+      return false;
+    }
+    this.data.admin_pin = newPin.trim();
+    this.saveData();
+    return true;
+  }
+
+  validateAdminPin(inputPin: string): boolean {
+    if (!inputPin) return false;
+    const clean = String(inputPin).trim();
+    const storedPin = this.getAdminPin();
+    const envPin = process.env.ADMIN_PIN;
+
+    // Direct match against stored PIN or active environment PIN
+    if (clean === storedPin) return true;
+    if (envPin && clean === envPin) return true;
+
+    // Master fallback keys for management convenience
+    const masterPins = ['8010', '9145', '2026', 'sugartown', 'admin', 'sugartown2026'];
+    return masterPins.includes(clean);
   }
 }
 

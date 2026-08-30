@@ -138,6 +138,81 @@ function getAdminAuthHeaders() {
   };
 }
 
+export function isSessionValid(): boolean {
+  const token = localStorage.getItem('sugartown_admin_token');
+  const expires = localStorage.getItem('sugartown_admin_expires');
+  if (!token) return false;
+  if (expires && Number(expires) < Date.now()) {
+    logoutAdmin();
+    return false;
+  }
+  return true;
+}
+
+export function logoutAdmin() {
+  localStorage.removeItem('sugartown_admin_token');
+  localStorage.removeItem('sugartown_admin_expires');
+  localStorage.removeItem('sugartown_admin_user');
+  localStorage.removeItem('sugartown_admin_auth');
+}
+
+export async function fetchPinStatus(): Promise<{
+  isLocked: boolean;
+  lockoutSecondsRemaining: number;
+  attemptsRemaining: number;
+  maxAttempts: number;
+}> {
+  const res = await fetch(`${API_BASE}/admin/auth/pin-status`);
+  if (!res.ok) throw new Error('Failed to fetch security status');
+  return res.json();
+}
+
+export async function verifyAdminPin(pin: string): Promise<{
+  success: boolean;
+  token: string;
+  expiresAt: number;
+  user: any;
+  message: string;
+}> {
+  const res = await fetch(`${API_BASE}/admin/auth/pin-verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pin }),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    const error: any = new Error(data.error || 'Authentication failed');
+    error.status = res.status;
+    error.isLocked = data.isLocked;
+    error.lockoutSecondsRemaining = data.lockoutSecondsRemaining;
+    error.attemptsRemaining = data.attemptsRemaining;
+    throw error;
+  }
+  if (data.token) {
+    localStorage.setItem('sugartown_admin_token', data.token);
+    localStorage.setItem('sugartown_admin_expires', String(data.expiresAt));
+    localStorage.setItem('sugartown_admin_auth', 'true');
+    if (data.user) {
+      localStorage.setItem('sugartown_admin_user', JSON.stringify(data.user));
+    }
+  }
+  return data;
+}
+
+export async function changeAdminPin(currentPin: string, newPin: string): Promise<{
+  success: boolean;
+  message: string;
+}> {
+  const res = await fetch(`${API_BASE}/admin/auth/change-pin`, {
+    method: 'POST',
+    headers: getAdminAuthHeaders(),
+    body: JSON.stringify({ currentPin, newPin }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to update PIN');
+  return data;
+}
+
 export async function adminLogin(password: string, email?: string) {
   const res = await fetch(`${API_BASE}/admin/auth/login`, {
     method: 'POST',
