@@ -82,7 +82,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPath = '/', onNavigate })
                   key={link.path}
                   id={`nav-link-${link.label.toLowerCase().replace(/\s+/g, '-')}`}
                   onClick={() => handleNavClick(link.path)}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap ${
+                  className={`px-2.5 xl:px-3.5 py-1.5 rounded-full text-[11px] xl:text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap ${
                     active
                       ? 'text-black bg-[#FFD100] border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
                       : 'text-neutral-700 hover:text-black hover:bg-neutral-100 border-2 border-transparent hover:border-black'
