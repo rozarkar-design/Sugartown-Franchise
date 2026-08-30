@@ -74,13 +74,21 @@ apiRouter.post('/submit-franchise-inquiry', async (req: Request, res: Response) 
     const {
       full_name,
       mobile,
+      phone,
+      whatsapp,
       email,
       city,
+      current_city,
       state,
+      preferred_state,
       profession,
       investment_capacity,
+      investment_budget,
       preferred_city,
       business_experience,
+      background_experience,
+      location_details,
+      launch_timeline,
       business_type,
       experience_years,
       preferred_format,
@@ -95,44 +103,57 @@ apiRouter.post('/submit-franchise-inquiry', async (req: Request, res: Response) 
     } = req.body;
 
     // Strict Validations
-    if (!full_name || full_name.trim().length < 2) {
+    if (!full_name || String(full_name).trim().length < 2) {
       return res.status(400).json({ error: 'Please enter a valid full name (minimum 2 characters).' });
     }
 
-    if (!mobile || mobile.replace(/\D/g, '').length < 10) {
-      return res.status(400).json({ error: 'Please enter a valid 10-digit Indian mobile number.' });
+    const rawPhone = mobile || phone || '';
+    const phoneDigits = String(rawPhone).replace(/\D/g, '');
+
+    if (!phoneDigits || phoneDigits.length < 10) {
+      return res.status(400).json({ error: 'Please enter a valid 10-digit mobile number.' });
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!email || !emailRegex.test(email)) {
+    if (!email || !emailRegex.test(String(email).trim())) {
       return res.status(400).json({ error: 'Please provide a valid email address.' });
     }
 
-    if (!consent) {
-      return res.status(400).json({ error: 'You must consent to being contacted by Sugartown.' });
-    }
-
     // Format & normalize phone number
-    const cleanPhone = mobile.trim().startsWith('+91')
-      ? mobile.trim()
-      : `+91${mobile.replace(/\D/g, '').slice(-10)}`;
+    const last10Digits = phoneDigits.slice(-10);
+    const cleanPhone = `+91${last10Digits}`;
+    const displayPhone = last10Digits;
 
-    // Store in PostgreSQL / Durable DB
+    const chosenCity = (preferred_city || city || current_city || '').trim();
+    const chosenState = (preferred_state || state || '').trim();
+    const chosenCurrentCity = (current_city || city || '').trim();
+    const chosenInvestment = (investment_capacity || investment_budget || preferred_format || '₹25 Lakh').trim();
+    const chosenWhatsapp = whatsapp ? String(whatsapp).trim() : cleanPhone;
+
+    // Store in Durable DB
     const lead = db.createLead({
-      full_name: full_name.trim(),
+      full_name: String(full_name).trim(),
       mobile: cleanPhone,
-      email: email.trim().toLowerCase(),
-      city: (city || '').trim(),
-      state: (state || '').trim(),
-      profession: (profession || '').trim(),
-      investment_capacity: (investment_capacity || '₹25 Lakh').trim(),
-      preferred_city: (preferred_city || city || '').trim(),
+      phone: displayPhone,
+      whatsapp: chosenWhatsapp,
+      email: String(email).trim().toLowerCase(),
+      city: chosenCurrentCity || chosenCity,
+      current_city: chosenCurrentCity || chosenCity,
+      state: chosenState,
+      preferred_state: chosenState,
+      profession: (profession || background_experience || '').trim(),
+      investment_capacity: chosenInvestment,
+      investment_budget: chosenInvestment,
+      preferred_city: chosenCity,
       business_experience: Boolean(business_experience),
-      business_type: business_type ? business_type.trim() : undefined,
+      background_experience: (background_experience || profession || '').trim(),
+      location_details: (location_details || '').trim(),
+      launch_timeline: (launch_timeline || '').trim(),
+      business_type: business_type ? String(business_type).trim() : undefined,
       experience_years: experience_years ? Number(experience_years) : undefined,
-      preferred_format: preferred_format ? preferred_format.trim() : undefined,
-      message: message ? message.trim() : undefined,
-      consent: true,
+      preferred_format: (preferred_format || chosenInvestment).trim(),
+      message: message ? String(message).trim() : undefined,
+      consent: consent !== undefined ? Boolean(consent) : true,
       source: source || 'Franchise Portal Inquiry',
       utm_source,
       utm_medium,
@@ -148,13 +169,16 @@ apiRouter.post('/submit-franchise-inquiry', async (req: Request, res: Response) 
     return res.status(201).json({
       success: true,
       lead_id: lead.id,
+      leadId: lead.id,
       email_status: emailResult.success ? 'dispatched' : 'queued',
-      message: 'Your inquiry has been received. Our team will contact you shortly.',
+      message: 'Your inquiry has been received. Our franchise expansion team will contact you shortly.',
       lead: {
         id: lead.id,
         full_name: lead.full_name,
         preferred_city: lead.preferred_city,
         investment_capacity: lead.investment_capacity,
+        phone: lead.phone,
+        mobile: lead.mobile,
         created_at: lead.created_at,
       },
     });
@@ -221,11 +245,12 @@ apiRouter.get('/admin/leads', requireAdminAuth, (req: Request, res: Response) =>
     const q = search.toLowerCase();
     leads = leads.filter(
       (l) =>
-        l.full_name.toLowerCase().includes(q) ||
-        l.email.toLowerCase().includes(q) ||
-        l.mobile.includes(q) ||
-        l.city.toLowerCase().includes(q) ||
-        (l.preferred_city && l.preferred_city.toLowerCase().includes(q))
+        (l.full_name && l.full_name.toLowerCase().includes(q)) ||
+        (l.email && l.email.toLowerCase().includes(q)) ||
+        ((l.mobile || l.phone || '').includes(q)) ||
+        (l.city && l.city.toLowerCase().includes(q)) ||
+        (l.preferred_city && l.preferred_city.toLowerCase().includes(q)) ||
+        (l.id && l.id.toLowerCase().includes(q))
     );
   }
 
@@ -235,15 +260,59 @@ apiRouter.get('/admin/leads', requireAdminAuth, (req: Request, res: Response) =>
 
   if (city && typeof city === 'string' && city !== 'all') {
     leads = leads.filter(
-      (l) => l.city.toLowerCase() === city.toLowerCase() || (l.preferred_city && l.preferred_city.toLowerCase() === city.toLowerCase())
+      (l) =>
+        (l.city && l.city.toLowerCase() === city.toLowerCase()) ||
+        (l.preferred_city && l.preferred_city.toLowerCase() === city.toLowerCase())
     );
   }
 
   if (investment && typeof investment === 'string' && investment !== 'all') {
-    leads = leads.filter((l) => l.investment_capacity.includes(investment));
+    leads = leads.filter((l) => (l.investment_capacity || l.investment_budget || '').includes(investment));
   }
 
   res.json(leads);
+});
+
+apiRouter.get('/export-leads-csv', (req: Request, res: Response) => {
+  const leads = db.getLeads();
+  const headers = [
+    'Lead ID',
+    'Name',
+    'Phone',
+    'Mobile',
+    'WhatsApp',
+    'Email',
+    'City',
+    'Preferred City',
+    'State',
+    'Investment Budget',
+    'Business Background',
+    'Timeline',
+    'Status',
+    'Created At',
+  ];
+
+  const rows = leads.map((l) => [
+    `"${l.id}"`,
+    `"${(l.full_name || '').replace(/"/g, '""')}"`,
+    `"${l.phone || l.mobile || ''}"`,
+    `"${l.mobile || l.phone || ''}"`,
+    `"${l.whatsapp || l.phone || l.mobile || ''}"`,
+    `"${l.email || ''}"`,
+    `"${l.current_city || l.city || ''}"`,
+    `"${(l.preferred_city || '').replace(/"/g, '""')}"`,
+    `"${l.preferred_state || l.state || ''}"`,
+    `"${l.investment_budget || l.investment_capacity || ''}"`,
+    `"${(l.background_experience || l.profession || '').replace(/"/g, '""')}"`,
+    `"${l.launch_timeline || ''}"`,
+    `"${l.status || 'New'}"`,
+    `"${l.created_at}"`,
+  ]);
+
+  const csv = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', `attachment; filename=sugartown-franchise-leads-${Date.now()}.csv`);
+  res.send(csv);
 });
 
 apiRouter.get('/admin/leads/export-csv', requireAdminAuth, (req: Request, res: Response) => {

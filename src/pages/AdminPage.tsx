@@ -159,13 +159,14 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onDataRefreshed }) => {
   const filteredLeads = useMemo(() => {
     return leads.filter((l) => {
       const matchStatus = leadStatusFilter === 'All' || l.status === leadStatusFilter;
+      const searchTarget = leadSearch.toLowerCase().trim();
       const matchSearch =
-        !leadSearch ||
-        l.full_name.toLowerCase().includes(leadSearch.toLowerCase()) ||
-        l.email.toLowerCase().includes(leadSearch.toLowerCase()) ||
-        l.phone.includes(leadSearch) ||
-        l.preferred_city.toLowerCase().includes(leadSearch.toLowerCase()) ||
-        l.id.toLowerCase().includes(leadSearch.toLowerCase());
+        !searchTarget ||
+        (l.full_name && l.full_name.toLowerCase().includes(searchTarget)) ||
+        (l.email && l.email.toLowerCase().includes(searchTarget)) ||
+        ((l.phone || l.mobile || '').includes(searchTarget)) ||
+        ((l.preferred_city || l.city || '').toLowerCase().includes(searchTarget)) ||
+        (l.id && l.id.toLowerCase().includes(searchTarget));
       return matchStatus && matchSearch;
     });
   }, [leads, leadStatusFilter, leadSearch]);
@@ -396,14 +397,14 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onDataRefreshed }) => {
                         {lead.full_name}
                       </td>
                       <td className="py-3.5 px-4 text-neutral-700">
-                        <div className="font-bold">{lead.phone}</div>
+                        <div className="font-bold">{lead.phone || lead.mobile}</div>
                         <div className="text-neutral-500 text-[11px] font-medium">{lead.email}</div>
                       </td>
                       <td className="py-3.5 px-4 font-bold text-black">
-                        {lead.preferred_city}
+                        {lead.preferred_city || lead.city}
                       </td>
                       <td className="py-3.5 px-4 text-neutral-800 font-bold max-w-xs truncate">
-                        {lead.investment_budget}
+                        {lead.investment_budget || lead.investment_capacity}
                       </td>
                       <td className="py-3.5 px-4 text-center">
                         <select
@@ -473,11 +474,11 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onDataRefreshed }) => {
                     </div>
                     <div>
                       <span className="text-neutral-600 block text-[10px] uppercase font-black">Phone</span>
-                      <strong className="text-black">{selectedLead.phone}</strong>
+                      <strong className="text-black">{selectedLead.phone || selectedLead.mobile}</strong>
                     </div>
                     <div>
                       <span className="text-neutral-600 block text-[10px] uppercase font-black">WhatsApp</span>
-                      <strong className="text-black">{selectedLead.whatsapp || selectedLead.phone}</strong>
+                      <strong className="text-black">{selectedLead.whatsapp || selectedLead.phone || selectedLead.mobile}</strong>
                     </div>
                     <div>
                       <span className="text-neutral-600 block text-[10px] uppercase font-black">Resident City</span>

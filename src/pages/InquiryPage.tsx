@@ -130,24 +130,32 @@ export const InquiryPage: React.FC<InquiryPageProps> = ({
         full_name: formData.full_name.trim(),
         email: formData.email.trim(),
         phone: formData.phone.trim(),
+        mobile: formData.phone.trim(),
         whatsapp: formData.sameAsPhone ? formData.phone.trim() : formData.whatsapp.trim(),
         current_city: formData.current_city.trim(),
+        city: formData.current_city.trim(),
         preferred_city: formData.preferred_city.trim(),
         preferred_state: formData.preferred_state.trim(),
+        state: formData.preferred_state.trim(),
         investment_budget: formData.investment_budget,
+        investment_capacity: formData.investment_budget,
+        preferred_format: formData.investment_budget,
         location_details: formData.location_details,
         launch_timeline: formData.launch_timeline,
         background_experience: formData.background_experience,
+        profession: formData.background_experience,
+        business_experience: true,
         message: formData.message.trim(),
+        consent: Boolean(formData.consent),
         source: 'Website Franchise Portal',
       });
 
-      if (result.success) {
+      if (result && (result.success || result.leadId || result.lead_id)) {
         // Clear draft
         localStorage.removeItem('sugartown_inquiry_draft');
-        onSuccess(result.leadId, formData);
+        onSuccess(result.leadId || result.lead_id || `lead-${Date.now()}`, formData);
       } else {
-        setErrorMessage(result.message || 'Submission failed. Please try again.');
+        setErrorMessage(result?.message || 'Submission failed. Please try again.');
       }
     } catch (err: any) {
       setErrorMessage(err?.message || 'Network error occurred. Please check your connection.');
