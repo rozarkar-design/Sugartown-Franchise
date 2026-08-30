@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+@layer utilities {
+  /* Bento Grid Hard Drop Shadow Tokens */
+  .bento-card {
+    @apply bg-white border-2 border-black rounded-[28px] sm:rounded-[32px] p-6 sm:p-8 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] sm:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all;
+  }
+  
+  .bento-card-interactive {
+    @apply bg-white border-2 border-black rounded-[28px] sm:rounded-[32px] p-6 sm:p-8 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] sm:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] transition-all hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] sm:hover:shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] active:translate-x-1 active:translate-y-1 active:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)];
+  }
+
+  .bento-card-orange {
+    @apply bg-[#FF5C00] text-white border-2 border-black rounded-[28px] sm:rounded-[32px] p-6 sm:p-8 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] sm:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)];
+  }
+
+  .bento-card-yellow {
+    @apply bg-[#FFD100] text-black border-2 border-black rounded-[28px] sm:rounded-[32px] p-6 sm:p-8 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] sm:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)];
+  }
+
+  .bento-card-cyan {
+    @apply bg-[#00D1FF] text-black border-2 border-black rounded-[28px] sm:rounded-[32px] p-6 sm:p-8 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] sm:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)];
+  }
+
+  .bento-card-dark {
+    @apply bg-black text-white border-2 border-black rounded-[28px] sm:rounded-[32px] p-6 sm:p-8 shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] sm:shadow-[8px_8px_0px_0px_rgba(0,0,0,1)];
+  }
+
+  .bento-btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3.5 sm:py-4 rounded-full bg-[#FF5C00] hover:bg-[#ff4500] text-white font-black text-sm uppercase tracking-wider border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer;
+  }
+
+  .bento-btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3.5 sm:py-4 rounded-full bg-white hover:bg-[#F3F4F6] text-black font-black text-sm uppercase tracking-wider border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer;
+  }
+
+  .bento-btn-dark {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3.5 sm:py-4 rounded-full bg-black hover:bg-neutral-900 text-white font-black text-sm uppercase tracking-wider border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[6px_6px_0px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] transition-all cursor-pointer;
+  }
+
+  .bento-pill {
+    @apply inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full border-2 border-black text-[10px] sm:text-xs font-black uppercase tracking-wider;
+  }
+
+  .bento-input {
+    @apply w-full px-4 py-3 rounded-2xl bg-white border-2 border-black text-sm font-semibold text-black placeholder:text-neutral-400 shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] focus:outline-none focus:shadow-[5px_5px_0px_0px_rgba(0,0,0,1)] transition-all;
+  }
+
+  .bento-badge {
+    @apply px-3 py-1 bg-[#E0E7FF] border border-black rounded-full text-[10px] font-black uppercase tracking-wider text-black;
+  }
+}

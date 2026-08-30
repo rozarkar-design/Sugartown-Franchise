@@ -1,0 +1,6 @@
+{
+  "name": "Sugartown Franchise & Investment Platform",
+  "description": "Premium franchise acquisition, FOCO model investment information, interactive ROI calculator, and multi-city India expansion platform for Sugartown Retail Private Limited.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
