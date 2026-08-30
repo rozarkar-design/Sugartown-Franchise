@@ -21,6 +21,7 @@ import { CalculatorPage } from './pages/CalculatorPage';
 import { IndiaExpansionPage } from './pages/IndiaExpansionPage';
 import { RoadmapPage } from './pages/RoadmapPage';
 import { ResourcesPage } from './pages/ResourcesPage';
+import { CompanyDocumentsPage } from './pages/CompanyDocumentsPage';
 import { FaqPage } from './pages/FaqPage';
 import { InquiryPage } from './pages/InquiryPage';
 import { ThankYouPage } from './pages/ThankYouPage';
@@ -149,6 +150,10 @@ export function App() {
 
             {currentPath === '/resources' && (
               <ResourcesPage documents={documents} onNavigate={navigateTo} />
+            )}
+
+            {(currentPath === '/company-documents' || currentPath === '/documents') && (
+              <CompanyDocumentsPage onNavigate={navigateTo} />
             )}
 
             {currentPath === '/faq' && <FaqPage faqs={faqs} onNavigate={navigateTo} />}

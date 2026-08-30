@@ -25,6 +25,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPath = '/', onNavigate })
     { label: 'ROI Calculator', path: '/calculator' },
     { label: 'India Expansion', path: '/india-expansion' },
     { label: 'Roadmap', path: '/roadmap' },
+    { label: 'Company Docs', path: '/company-documents' },
     { label: 'Resources', path: '/resources' },
     { label: 'FAQ', path: '/faq' },
   ];

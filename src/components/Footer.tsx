@@ -105,6 +105,15 @@ export const Footer: React.FC<FooterProps> = ({ onNavigate }) => {
             <ul className="space-y-2 text-sm font-bold text-neutral-300">
               <li>
                 <button
+                  onClick={() => handleNav('/company-documents')}
+                  className="hover:text-[#FFD100] text-white font-black transition-colors flex items-center gap-1.5"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-[#FFD100]" />
+                  <span>Company Documents & Legal</span>
+                </button>
+              </li>
+              <li>
+                <button
                   onClick={() => handleNav('/resources')}
                   className="hover:text-[#FF5C00] transition-colors"
                 >

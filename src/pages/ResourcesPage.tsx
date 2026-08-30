@@ -36,6 +36,18 @@ export const ResourcesPage: React.FC<ResourcesPageProps> = ({ documents, onNavig
         <p className="text-sm sm:text-base text-neutral-700 font-medium max-w-2xl mx-auto leading-relaxed">
           Access official franchise information memoranda, FOCO governance guidelines, unit economics models, and expansion roadmaps.
         </p>
+
+        <div className="pt-2">
+          <button
+            id="resources-go-to-company-docs-btn"
+            onClick={() => onNavigate('/company-documents')}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-[#FFD100] border-2 border-black text-xs font-black uppercase text-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] transition-colors active:translate-y-0.5"
+          >
+            <ShieldCheck className="w-4 h-4 text-[#FF5C00]" />
+            <span>Looking for MCA Incorporation, FSSAI & Startup India Certificates? View Company Documents</span>
+            <ExternalLink className="w-3.5 h-3.5" />
+          </button>
+        </div>
       </section>
 
       {/* ---------------------------------------------------- */}
