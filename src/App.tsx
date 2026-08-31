@@ -98,7 +98,7 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F3F4F6] text-[#1A1A1A] font-sans antialiased selection:bg-[#FF5C00] selection:text-white">
+    <div className="min-h-screen w-full max-w-[100vw] overflow-x-hidden flex flex-col bg-[#F3F4F6] text-[#1A1A1A] font-sans antialiased selection:bg-[#FF5C00] selection:text-white">
       {/* Global Navigation Bar */}
       <Navbar currentPath={currentPath} onNavigate={navigateTo} />
 
