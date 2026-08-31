@@ -3,6 +3,8 @@ import path from 'path';
 import {
   Lead,
   LeadNote,
+  FranchiseLoi,
+  LoiStatus,
   InvestmentModel,
   InvestmentComponent,
   RoiAssumptions,
@@ -22,6 +24,7 @@ import {
   initialFaqs,
   initialDocuments,
   initialLeads,
+  initialLois,
 } from './initialData';
 
 interface DatabaseSchema {
@@ -34,6 +37,7 @@ interface DatabaseSchema {
   faqs: Faq[];
   documents: ResourceDocument[];
   leads: Lead[];
+  lois?: FranchiseLoi[];
   admin_users: AdminUser[];
 }
 
@@ -62,6 +66,7 @@ class DatabaseService {
           faqs: parsed.faqs || initialFaqs,
           documents: parsed.documents || initialDocuments,
           leads: parsed.leads || initialLeads,
+          lois: parsed.lois || initialLois,
           admin_users: parsed.admin_users || [
             {
               id: 'admin-1',
@@ -87,6 +92,7 @@ class DatabaseService {
       faqs: initialFaqs,
       documents: initialDocuments,
       leads: initialLeads,
+      lois: initialLois,
       admin_users: [
         {
           id: 'admin-1',
@@ -364,10 +370,269 @@ class DatabaseService {
     return newNote;
   }
 
+  // --- LOI (Letter of Intent) Management ---
+  getLois(): FranchiseLoi[] {
+    if (!this.data.lois) {
+      this.data.lois = initialLois;
+    }
+    return [...this.data.lois].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+  }
+
+  getLoiById(id: string): FranchiseLoi | undefined {
+    return (this.data.lois || []).find((l) => l.id === id || l.loi_number === id);
+  }
+
+  createLoi(loiData: Omit<FranchiseLoi, 'id' | 'loi_number' | 'created_at' | 'updated_at' | 'status'>): FranchiseLoi {
+    if (!this.data.lois) {
+      this.data.lois = [];
+    }
+    const currentYear = new Date().getFullYear();
+    const randomSeq = Math.floor(1000 + Math.random() * 9000);
+    const id = `loi-sug-${Date.now()}`;
+    const loi_number = `ST-LOI-${currentYear}-${randomSeq}`;
+
+    const newLoi: FranchiseLoi = {
+      ...loiData,
+      id,
+      loi_number,
+      status: 'submitted',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    this.data.lois.unshift(newLoi);
+
+    // Also automatically link or create a franchise lead record so sales team can track concurrently
+    const existingLead = this.data.leads.find(
+      (l) => l.email.toLowerCase() === loiData.email.toLowerCase() || l.phone.includes(loiData.phone.slice(-10))
+    );
+
+    if (existingLead) {
+      existingLead.status = 'qualified';
+      existingLead.investment_budget = loiData.investment_model;
+      existingLead.preferred_city = loiData.target_city;
+      existingLead.updated_at = new Date().toISOString();
+      if (!existingLead.notes) existingLead.notes = [];
+      existingLead.notes.unshift({
+        id: `note-${Date.now()}`,
+        lead_id: existingLead.id,
+        author: 'System (LOI Engine)',
+        note: `Standard Franchise LOI submitted (${loi_number}) with ₹${(loiData.investment_amount_committed / 100000).toFixed(1)} Lakhs commitment for ${loiData.target_city}.`,
+        created_at: new Date().toISOString(),
+      });
+    } else {
+      this.createLead({
+        full_name: loiData.full_name,
+        phone: loiData.phone,
+        mobile: loiData.phone,
+        whatsapp: loiData.whatsapp,
+        email: loiData.email,
+        city: loiData.current_city,
+        current_city: loiData.current_city,
+        state: loiData.current_state,
+        preferred_city: loiData.target_city,
+        preferred_state: loiData.target_state,
+        profession: loiData.profession_background,
+        investment_capacity: `₹${(loiData.investment_amount_committed / 100000).toFixed(0)} Lakh`,
+        investment_budget: loiData.investment_model,
+        location_details: `${loiData.preferred_location} (Carpet Area: ${loiData.proposed_carpet_area_sqft || 'Standard'} sq.ft)`,
+        launch_timeline: loiData.target_launch_timeline.replace('_', ' ').toUpperCase(),
+        background_experience: loiData.profession_background,
+        business_experience: Boolean(loiData.existing_business_details),
+        message: `Standard LOI submitted (${loi_number}). Preferred Location: ${loiData.preferred_location}. Entity: ${loiData.entity_name || 'Individual'}.`,
+        consent: true,
+        source: 'Standard Franchise LOI Portal',
+      });
+    }
+
+    this.saveData();
+    return newLoi;
+  }
+
+  updateLoiStatus(
+    id: string,
+    status: LoiStatus,
+    assigned_manager?: string,
+    admin_notes?: string
+  ): FranchiseLoi | null {
+    if (!this.data.lois) return null;
+    const idx = this.data.lois.findIndex((l) => l.id === id || l.loi_number === id);
+    if (idx === -1) return null;
+
+    this.data.lois[idx] = {
+      ...this.data.lois[idx],
+      status,
+      ...(assigned_manager !== undefined ? { assigned_manager } : {}),
+      ...(admin_notes !== undefined ? { admin_notes } : {}),
+      updated_at: new Date().toISOString(),
+    };
+
+    this.saveData();
+    return this.data.lois[idx];
+  }
+
+  customizeLoi(
+    id: string,
+    updates: Partial<FranchiseLoi>,
+    adminName: string = 'Sugartown Corporate Expansion Committee'
+  ): FranchiseLoi | null {
+    if (!this.data.lois) return null;
+    const idx = this.data.lois.findIndex((l) => l.id === id || l.loi_number === id);
+    if (idx === -1) return null;
+
+    const currentLoi = this.data.lois[idx];
+    const currentRev = currentLoi.revision_number || 1;
+    const newRev = currentRev + 1;
+
+    const updatedLoi: FranchiseLoi = {
+      ...currentLoi,
+      ...updates,
+      revision_number: newRev,
+      modified_at: new Date().toISOString(),
+      modified_by: adminName,
+      status: 'customized_terms_sent',
+      investor_approval_status: 'pending',
+      updated_at: new Date().toISOString(),
+    };
+
+    this.data.lois[idx] = updatedLoi;
+
+    // Log CRM note
+    const linkedLead = this.data.leads.find(
+      (l) => l.email.toLowerCase() === currentLoi.email.toLowerCase() || l.phone.includes(currentLoi.phone.slice(-10))
+    );
+    if (linkedLead) {
+      if (!linkedLead.notes) linkedLead.notes = [];
+      linkedLead.notes.unshift({
+        id: `note-${Date.now()}`,
+        lead_id: linkedLead.id,
+        author: adminName,
+        note: `Customized LOI Terms & Conditions (Rev #${newRev}) dispatched to investor for approval. ${
+          updates.custom_terms_notes ? `Notes: "${updates.custom_terms_notes}"` : ''
+        }`,
+        created_at: new Date().toISOString(),
+      });
+      linkedLead.status = 'follow_up';
+      linkedLead.updated_at = new Date().toISOString();
+    }
+
+    this.saveData();
+    return updatedLoi;
+  }
+
+  investorApproveLoi(
+    id: string,
+    approvalData: {
+      signatory_name: string;
+      approval_notes?: string;
+      ip?: string;
+    }
+  ): FranchiseLoi | null {
+    if (!this.data.lois) return null;
+    const idx = this.data.lois.findIndex((l) => l.id === id || l.loi_number === id);
+    if (idx === -1) return null;
+
+    const currentLoi = this.data.lois[idx];
+    const updatedLoi: FranchiseLoi = {
+      ...currentLoi,
+      status: 'investor_approved',
+      investor_approval_status: 'approved',
+      investor_approved_at: new Date().toISOString(),
+      investor_signature_name: approvalData.signatory_name || currentLoi.signatory_name,
+      investor_approval_notes: approvalData.approval_notes,
+      investor_approval_ip: approvalData.ip,
+      updated_at: new Date().toISOString(),
+    };
+
+    this.data.lois[idx] = updatedLoi;
+
+    // Log CRM note
+    const linkedLead = this.data.leads.find(
+      (l) => l.email.toLowerCase() === currentLoi.email.toLowerCase() || l.phone.includes(currentLoi.phone.slice(-10))
+    );
+    if (linkedLead) {
+      if (!linkedLead.notes) linkedLead.notes = [];
+      linkedLead.notes.unshift({
+        id: `note-${Date.now()}`,
+        lead_id: linkedLead.id,
+        author: 'Investor (Online Portal)',
+        note: `Investor ${approvalData.signatory_name} APPROVED & RESUBMITTED the customized LOI (${currentLoi.loi_number}, Rev #${currentLoi.revision_number || 1})! ${
+          approvalData.approval_notes ? `Investor Remarks: "${approvalData.approval_notes}"` : ''
+        }`,
+        created_at: new Date().toISOString(),
+      });
+      linkedLead.status = 'qualified';
+      linkedLead.updated_at = new Date().toISOString();
+    }
+
+    this.saveData();
+    return updatedLoi;
+  }
+
+  investorCounterLoi(
+    id: string,
+    counterData: {
+      notes: string;
+      requested_by?: string;
+      ip?: string;
+    }
+  ): FranchiseLoi | null {
+    if (!this.data.lois) return null;
+    const idx = this.data.lois.findIndex((l) => l.id === id || l.loi_number === id);
+    if (idx === -1) return null;
+
+    const currentLoi = this.data.lois[idx];
+    const updatedLoi: FranchiseLoi = {
+      ...currentLoi,
+      status: 'investor_countered',
+      investor_approval_status: 'counter_requested',
+      investor_approval_notes: counterData.notes,
+      investor_approval_ip: counterData.ip,
+      updated_at: new Date().toISOString(),
+    };
+
+    this.data.lois[idx] = updatedLoi;
+
+    const linkedLead = this.data.leads.find(
+      (l) => l.email.toLowerCase() === currentLoi.email.toLowerCase() || l.phone.includes(currentLoi.phone.slice(-10))
+    );
+    if (linkedLead) {
+      if (!linkedLead.notes) linkedLead.notes = [];
+      linkedLead.notes.unshift({
+        id: `note-${Date.now()}`,
+        lead_id: linkedLead.id,
+        author: counterData.requested_by || 'Investor',
+        note: `Investor requested clarification / counter-terms on LOI (${currentLoi.loi_number}): "${counterData.notes}"`,
+        created_at: new Date().toISOString(),
+      });
+      linkedLead.status = 'follow_up';
+      linkedLead.updated_at = new Date().toISOString();
+    }
+
+    this.saveData();
+    return updatedLoi;
+  }
+
+  deleteLoi(id: string): boolean {
+    if (!this.data.lois) return false;
+    const initialLen = this.data.lois.length;
+    this.data.lois = this.data.lois.filter((l) => l.id !== id && l.loi_number !== id);
+    if (this.data.lois.length !== initialLen) {
+      this.saveData();
+      return true;
+    }
+    return false;
+  }
+
   // --- Admin stats ---
   getDashboardStats() {
     const leads = this.data.leads;
+    const lois = this.data.lois || [];
     const totalLeads = leads.length;
+    const totalLois = lois.length;
+    const pendingLois = lois.filter((l) => l.status === 'submitted' || l.status === 'under_review').length;
     const newLeads = leads.filter((l) => l.status === 'new').length;
     const qualifiedLeads = leads.filter((l) => l.status === 'qualified').length;
     const convertedLeads = leads.filter((l) => l.status === 'converted').length;
@@ -399,6 +664,8 @@ class DatabaseService {
 
     return {
       totalLeads,
+      totalLois,
+      pendingLois,
       newLeads,
       qualifiedLeads,
       convertedLeads,

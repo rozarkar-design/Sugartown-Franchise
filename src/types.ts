@@ -8,6 +8,90 @@ export type LeadStatus =
   | 'converted'
   | 'lost';
 
+export type LoiStatus =
+  | 'submitted'
+  | 'under_review'
+  | 'customized_terms_sent'
+  | 'investor_approved'
+  | 'investor_countered'
+  | 'territory_reserved'
+  | 'agreement_sent'
+  | 'approved'
+  | 'rejected'
+  | 'due_diligence'
+  | 'site_allocated'
+  | 'declined';
+
+export interface FranchiseLoi {
+  id: string;
+  loi_number: string;
+  // Investor Personal & Entity Details
+  full_name: string;
+  entity_type: 'individual' | 'sole_proprietorship' | 'llp' | 'private_limited' | 'partnership';
+  entity_name?: string;
+  pan_number?: string;
+  aadhaar_or_id?: string;
+  email: string;
+  phone: string;
+  whatsapp: string;
+  current_address: string;
+  current_city: string;
+  current_state: string;
+  pin_code?: string;
+  profession_background: string;
+  existing_business_details?: string;
+
+  // Franchise & Commercial Preferences
+  investment_model: string; // '25L' | '50L' | 'custom'
+  investment_amount_committed: number; // e.g. 2500000 or 5000000
+  target_city: string;
+  target_state: string;
+  preferred_location: string;
+  site_status: 'owned' | 'leased' | 'identifying' | 'request_hq_selection';
+  proposed_carpet_area_sqft?: number;
+  source_of_funds: 'self_liquid' | 'partnership' | 'bank_loan' | 'family_office';
+  target_launch_timeline: '30_days' | '45_days' | '60_days' | '90_days';
+
+  // Declarations & Acceptance
+  accepts_foco_model: boolean;
+  accepts_confidentiality_nda: boolean;
+  accepts_commercial_terms: boolean;
+  territory_exclusivity_requested?: boolean;
+  signatory_name: string;
+  signatory_title?: string;
+  submission_date: string;
+  ip_address?: string;
+
+  // Customized Terms & Conditions by HQ
+  custom_terms?: string[];
+  custom_terms_notes?: string;
+  custom_royalty_percentage?: number;
+  custom_foco_payout_terms?: string;
+  territory_exclusivity_days?: number;
+  special_rebates_or_support?: string;
+
+  // Revisions & Modification Tracking
+  revision_number?: number;
+  modified_at?: string;
+  modified_by?: string;
+
+  // Investor Approval & Resubmission Tracking
+  investor_approval_status?: 'pending' | 'approved' | 'counter_requested';
+  investor_approved_at?: string;
+  investor_approval_notes?: string;
+  investor_signature_name?: string;
+  investor_approval_ip?: string;
+
+  // Internal CRM & Admin Tracking
+  status: LoiStatus;
+  admin_notes?: string;
+  assigned_manager?: string;
+  site_evaluation_date?: string;
+  agreement_draft_sent?: boolean;
+  created_at: string;
+  updated_at?: string;
+}
+
 export interface Lead {
   id: string;
   full_name: string;

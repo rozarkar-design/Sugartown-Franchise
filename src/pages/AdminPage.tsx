@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   FranchiseLead,
+  FranchiseLoi,
+  LoiStatus,
   InvestmentModel,
   RoiAssumptions,
   City,
@@ -18,12 +20,18 @@ import {
   updateFaq,
   deleteFaq,
   exportLeadsCsv,
+  fetchAdminLois,
+  updateAdminLoiStatus,
+  customizeAdminLoi,
+  deleteAdminLoi,
+  exportLoisCsv,
   verifyAdminPin,
   changeAdminPin,
   fetchPinStatus,
   logoutAdmin,
   isSessionValid,
 } from '../lib/api';
+import { LoiDocumentPreview } from '../components/LoiDocumentPreview';
 import {
   Lock,
   LogOut,
@@ -55,6 +63,8 @@ import {
   Clock,
   RotateCcw,
   CheckCircle2,
+  CheckCircle,
+  Share2,
   Sparkles,
 } from 'lucide-react';
 import { formatIndianCurrency } from '../lib/calculator';
@@ -88,12 +98,13 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onDataRefreshed }) => {
 
   // Active admin tab
   const [activeTab, setActiveTab] = useState<
-    'leads' | 'investments' | 'assumptions' | 'cities' | 'faqs' | 'documents' | 'security'
+    'leads' | 'lois' | 'investments' | 'assumptions' | 'cities' | 'faqs' | 'documents' | 'security'
   >('leads');
 
   // App Data
   const [loading, setLoading] = useState<boolean>(true);
   const [leads, setLeads] = useState<FranchiseLead[]>([]);
+  const [lois, setLois] = useState<FranchiseLoi[]>([]);
   const [investmentModels, setInvestmentModels] = useState<InvestmentModel[]>([]);
   const [assumptions, setAssumptions] = useState<RoiAssumptions[]>([]);
   const [cities, setCities] = useState<City[]>([]);
@@ -105,6 +116,50 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onDataRefreshed }) => {
   const [leadStatusFilter, setLeadStatusFilter] = useState<string>('All');
   const [selectedLead, setSelectedLead] = useState<FranchiseLead | null>(null);
   const [leadNotes, setLeadNotes] = useState<string>('');
+
+  // LOI Management State
+  const [loiSearch, setLoiSearch] = useState<string>('');
+  const [loiStatusFilter, setLoiStatusFilter] = useState<string>('All');
+  const [selectedLoi, setSelectedLoi] = useState<FranchiseLoi | null>(null);
+  const [loiAdminNotes, setLoiAdminNotes] = useState<string>('');
+  const [loiAssignedManager, setLoiAssignedManager] = useState<string>('');
+  const [isUpdatingLoi, setIsUpdatingLoi] = useState<boolean>(false);
+
+  // Customize LOI Modal State
+  const [customizingLoi, setCustomizingLoi] = useState<FranchiseLoi | null>(null);
+  const [customLoiForm, setCustomLoiForm] = useState<{
+    investment_model: string;
+    investment_amount_committed: number;
+    target_city: string;
+    target_state: string;
+    preferred_location: string;
+    territory_exclusivity_days: number;
+    custom_royalty_percentage: number;
+    special_rebates_or_support: string;
+    custom_foco_payout_terms: string;
+    custom_terms: string[];
+    custom_terms_notes: string;
+    adminName: string;
+    assigned_manager: string;
+  }>({
+    investment_model: '',
+    investment_amount_committed: 2500000,
+    target_city: '',
+    target_state: '',
+    preferred_location: '',
+    territory_exclusivity_days: 45,
+    custom_royalty_percentage: 95,
+    special_rebates_or_support: '',
+    custom_foco_payout_terms: 'Monthly net revenue share credited on the 5th of every succeeding English calendar month',
+    custom_terms: [],
+    custom_terms_notes: '',
+    adminName: 'Franchise Expansion Board, Sugartown Retail HQ',
+    assigned_manager: '',
+  });
+  const [newClauseInput, setNewClauseInput] = useState<string>('');
+  const [isSavingCustomLoi, setIsSavingCustomLoi] = useState<boolean>(false);
+  const [customLoiSuccessMsg, setCustomLoiSuccessMsg] = useState<string | null>(null);
+  const [copiedLoiLink, setCopiedLoiLink] = useState<boolean>(false);
 
   // Modals / Editors
   const [editingModel, setEditingModel] = useState<InvestmentModel | null>(null);
@@ -161,8 +216,12 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onDataRefreshed }) => {
   const loadAll = async () => {
     setLoading(true);
     try {
-      const data = await fetchAllData();
+      const [data, loisData] = await Promise.all([
+        fetchAllData(),
+        fetchAdminLois().catch(() => []),
+      ]);
       setLeads(data.leads || []);
+      setLois(loisData || []);
       setInvestmentModels(data.investmentModels || []);
       setAssumptions(data.assumptions || []);
       setCities(data.cities || []);
@@ -173,6 +232,127 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onDataRefreshed }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleUpdateLoiStatus = async (
+    id: string,
+    newStatus: LoiStatus,
+    manager?: string,
+    notes?: string
+  ) => {
+    setIsUpdatingLoi(true);
+    try {
+      const updated = await updateAdminLoiStatus(id, newStatus, manager, notes);
+      setLois((prev) => prev.map((l) => (l.id === id ? updated : l)));
+      if (selectedLoi && selectedLoi.id === id) {
+        setSelectedLoi(updated);
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to update LOI status.');
+    } finally {
+      setIsUpdatingLoi(false);
+    }
+  };
+
+  const handleDeleteLoi = async (id: string) => {
+    if (!window.confirm('Are you sure you want to permanently delete this LOI record?')) return;
+    try {
+      await deleteAdminLoi(id);
+      setLois((prev) => prev.filter((l) => l.id !== id));
+      if (selectedLoi && selectedLoi.id === id) {
+        setSelectedLoi(null);
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete LOI record.');
+    }
+  };
+
+  const handleOpenCustomizeModal = (loi: FranchiseLoi) => {
+    setCustomizingLoi(loi);
+    setCustomLoiSuccessMsg(null);
+    setCopiedLoiLink(false);
+    setCustomLoiForm({
+      investment_model: loi.investment_model || 'Express Kiosk & High-Street Boutique (₹25L)',
+      investment_amount_committed: loi.investment_amount_committed || 2500000,
+      target_city: loi.target_city || '',
+      target_state: loi.target_state || '',
+      preferred_location: loi.preferred_location || '',
+      territory_exclusivity_days: loi.territory_exclusivity_days || 45,
+      custom_royalty_percentage: loi.custom_royalty_percentage !== undefined ? loi.custom_royalty_percentage : 95,
+      special_rebates_or_support:
+        loi.special_rebates_or_support ||
+        'Sugartown HQ to provide ₹1,50,000 Inaugural Marketing Grant & Initial Merchandising Display Support.',
+      custom_foco_payout_terms:
+        loi.custom_foco_payout_terms ||
+        'Monthly net profit remittance credited directly to investor escrow account on or before the 5th of every month.',
+      custom_terms:
+        loi.custom_terms && loi.custom_terms.length > 0
+          ? [...loi.custom_terms]
+          : [
+              'Sugartown Retail Pvt Ltd guarantees dedicated master candy artisan deployment with zero local recruitment liability for the Franchise Partner.',
+              '100% replacement warranty on central live candy theater display equipment for the entire 5-year lock-in term.',
+              'Right of First Refusal (ROFR) granted to Investor for 2nd outlet opening within a 5 km radius in target territory.',
+            ],
+      custom_terms_notes:
+        loi.custom_terms_notes ||
+        `Approved with customized commercial covenants for ${loi.target_city}. Please review, sign digitally, and resubmit to lock in territory allotment.`,
+      adminName: 'Director of Franchise Allotment, Sugartown Retail HQ',
+      assigned_manager: loi.assigned_manager || 'Franchise Director Desk',
+    });
+  };
+
+  const handleSaveCustomLoi = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customizingLoi) return;
+    setIsSavingCustomLoi(true);
+    setCustomLoiSuccessMsg(null);
+
+    try {
+      const res = await customizeAdminLoi(customizingLoi.id, {
+        investment_model: customLoiForm.investment_model,
+        investment_amount_committed: Number(customLoiForm.investment_amount_committed),
+        target_city: customLoiForm.target_city,
+        target_state: customLoiForm.target_state,
+        preferred_location: customLoiForm.preferred_location,
+        territory_exclusivity_days: Number(customLoiForm.territory_exclusivity_days),
+        custom_royalty_percentage: Number(customLoiForm.custom_royalty_percentage),
+        special_rebates_or_support: customLoiForm.special_rebates_or_support,
+        custom_foco_payout_terms: customLoiForm.custom_foco_payout_terms,
+        custom_terms: customLoiForm.custom_terms,
+        custom_terms_notes: customLoiForm.custom_terms_notes,
+        adminName: customLoiForm.adminName,
+        assigned_manager: customLoiForm.assigned_manager,
+      });
+
+      setLois((prev) => prev.map((l) => (l.id === customizingLoi.id ? res.loi : l)));
+      if (selectedLoi && selectedLoi.id === customizingLoi.id) {
+        setSelectedLoi(res.loi);
+      }
+      setCustomizingLoi(res.loi);
+      setCustomLoiSuccessMsg(
+        `Revision #${res.loi.revision_number} generated! Status changed to 'Customized Terms Sent' and logged to CRM timeline.`
+      );
+    } catch (err: any) {
+      alert(err.message || 'Failed to customize LOI terms.');
+    } finally {
+      setIsSavingCustomLoi(false);
+    }
+  };
+
+  const handleAddCustomClause = () => {
+    if (!newClauseInput.trim()) return;
+    setCustomLoiForm((prev) => ({
+      ...prev,
+      custom_terms: [...prev.custom_terms, newClauseInput.trim()],
+    }));
+    setNewClauseInput('');
+  };
+
+  const handleRemoveCustomClause = (index: number) => {
+    setCustomLoiForm((prev) => ({
+      ...prev,
+      custom_terms: prev.custom_terms.filter((_, i) => i !== index),
+    }));
   };
 
   useEffect(() => {
@@ -453,21 +633,19 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onDataRefreshed }) => {
       </div>
 
       {/* KPI Stats Bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3.5">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3.5">
         <div className="p-4 rounded-[20px] bg-white border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
           <span className="text-[11px] font-black uppercase tracking-wider text-neutral-600 block mb-1">Total Leads</span>
           <span className="text-2xl font-black text-black block">{leads.length}</span>
         </div>
         <div className="p-4 rounded-[20px] bg-white border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
-          <span className="text-[11px] font-black uppercase tracking-wider text-neutral-600 block mb-1">New Leads</span>
-          <span className="text-2xl font-black text-[#FF5C00] block">
-            {leads.filter((l) => l.status === 'New').length}
-          </span>
+          <span className="text-[11px] font-black uppercase tracking-wider text-neutral-600 block mb-1">Standard LOIs</span>
+          <span className="text-2xl font-black text-[#FF5C00] block">{lois.length}</span>
         </div>
         <div className="p-4 rounded-[20px] bg-white border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
-          <span className="text-[11px] font-black uppercase tracking-wider text-neutral-600 block mb-1">Under Review</span>
-          <span className="text-2xl font-black text-blue-600 block">
-            {leads.filter((l) => l.status === 'Under Review' || l.status === 'Contacted').length}
+          <span className="text-[11px] font-black uppercase tracking-wider text-neutral-600 block mb-1">Pending Review</span>
+          <span className="text-2xl font-black text-amber-600 block">
+            {lois.filter((l) => l.status === 'submitted' || l.status === 'under_review').length}
           </span>
         </div>
         <div className="p-4 rounded-[20px] bg-white border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
@@ -482,12 +660,17 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onDataRefreshed }) => {
           <span className="text-[11px] font-black uppercase tracking-wider text-neutral-600 block mb-1">FAQ Items</span>
           <span className="text-2xl font-black text-black block">{faqs.length}</span>
         </div>
+        <div className="p-4 rounded-[20px] bg-white border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]">
+          <span className="text-[11px] font-black uppercase tracking-wider text-neutral-600 block mb-1">Documents</span>
+          <span className="text-2xl font-black text-black block">{documents.length}</span>
+        </div>
       </div>
 
       {/* Admin Tabs */}
       <div className="flex flex-wrap items-center gap-2 border-b-2 border-black/10 pb-3">
         {[
           { id: 'leads', label: `Franchise Leads (${leads.length})`, icon: Users },
+          { id: 'lois', label: `Standard LOIs (${lois.length})`, icon: FileText },
           { id: 'investments', label: 'Investment Formats', icon: Building },
           { id: 'assumptions', label: 'ROI Assumptions', icon: TrendingUp },
           { id: 'cities', label: `Cities & Territories (${cities.length})`, icon: MapPin },
@@ -726,6 +909,742 @@ export const AdminPage: React.FC<AdminPageProps> = ({ onDataRefreshed }) => {
                     </button>
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ------------------------------------------------------------- */}
+      {/* TAB: STANDARD FRANCHISE LOI (LETTER OF INTENT) MANAGEMENT */}
+      {/* ------------------------------------------------------------- */}
+      {activeTab === 'lois' && (
+        <div className="space-y-4">
+          {/* Controls Bar */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bento-card p-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="relative">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-black" />
+                <input
+                  type="text"
+                  placeholder="Search LOIs by number, name, city, PAN..."
+                  value={loiSearch}
+                  onChange={(e) => setLoiSearch(e.target.value)}
+                  className="pl-9 pr-4 py-2 rounded-xl border-2 border-black font-bold text-xs w-64 sm:w-72 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] focus:outline-none focus:ring-2 focus:ring-[#FF5C00]"
+                />
+              </div>
+
+              <select
+                value={loiStatusFilter}
+                onChange={(e) => setLoiStatusFilter(e.target.value)}
+                className="px-3 py-2 rounded-xl border-2 border-black font-black uppercase text-xs bg-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+              >
+                <option value="All">All Statuses</option>
+                <option value="submitted">Submitted (New)</option>
+                <option value="under_review">Under Due Diligence</option>
+                <option value="territory_reserved">Territory Reserved</option>
+                <option value="agreement_sent">Agreement Sent</option>
+                <option value="approved">Approved & Finalized</option>
+                <option value="rejected">Rejected / Ineligible</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <a
+                href={exportLoisCsv}
+                download="sugartown-franchise-lois.csv"
+                className="bento-btn-primary py-2 px-4 text-xs inline-flex items-center gap-1.5"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Export LOIs CSV</span>
+              </a>
+            </div>
+          </div>
+
+          {/* LOIs Data Table */}
+          <div className="bento-card overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-[#FFF8E7] border-b-2 border-black">
+                  <tr>
+                    <th className="p-3.5 font-black uppercase text-black">LOI Ref / Date</th>
+                    <th className="p-3.5 font-black uppercase text-black">Applicant / Entity</th>
+                    <th className="p-3.5 font-black uppercase text-black">Target City</th>
+                    <th className="p-3.5 font-black uppercase text-black">Committed Capital</th>
+                    <th className="p-3.5 font-black uppercase text-black">Format</th>
+                    <th className="p-3.5 font-black uppercase text-black">Status</th>
+                    <th className="p-3.5 font-black uppercase text-black text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y-2 divide-black/10 bg-white">
+                  {lois
+                    .filter((loi) => {
+                      const matchStatus =
+                        loiStatusFilter === 'All' || loi.status === loiStatusFilter;
+                      const q = loiSearch.toLowerCase().trim();
+                      const matchSearch =
+                        !q ||
+                        loi.full_name.toLowerCase().includes(q) ||
+                        loi.loi_number.toLowerCase().includes(q) ||
+                        (loi.target_city && loi.target_city.toLowerCase().includes(q)) ||
+                        (loi.current_city && loi.current_city.toLowerCase().includes(q)) ||
+                        (loi.phone && loi.phone.includes(q)) ||
+                        (loi.pan_number && loi.pan_number.toLowerCase().includes(q)) ||
+                        (loi.entity_name && loi.entity_name.toLowerCase().includes(q));
+                      return matchStatus && matchSearch;
+                    })
+                    .map((loi) => (
+                      <tr key={loi.id} className="hover:bg-neutral-50 transition-colors">
+                        <td className="p-3.5 font-mono">
+                          <span className="font-black text-black block">{loi.loi_number}</span>
+                          <span className="text-[10px] text-neutral-500">
+                            {new Date(loi.created_at).toLocaleDateString('en-IN', {
+                              day: '2-digit',
+                              month: 'short',
+                              year: 'numeric',
+                            })}
+                          </span>
+                        </td>
+
+                        <td className="p-3.5">
+                          <span className="font-bold text-black block">{loi.full_name}</span>
+                          <span className="text-[10px] text-neutral-500 font-mono">
+                            {loi.phone} • {loi.email}
+                          </span>
+                          {loi.entity_name && (
+                            <span className="text-[10px] font-bold text-purple-700 block">
+                              {loi.entity_name} ({loi.entity_type})
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="p-3.5">
+                          <span className="font-black text-[#FF5C00] block">{loi.target_city}</span>
+                          <span className="text-[10px] text-neutral-500 truncate max-w-[150px] block">
+                            {loi.preferred_location}
+                          </span>
+                        </td>
+
+                        <td className="p-3.5 font-mono">
+                          <span className="font-bold text-emerald-700 block">
+                            ₹{(loi.investment_amount_committed / 100000).toFixed(1)} Lakhs
+                          </span>
+                          <span className="text-[10px] text-neutral-500 capitalize">
+                            {loi.source_of_funds.replace('_', ' ')}
+                          </span>
+                        </td>
+
+                        <td className="p-3.5">
+                          <span className="font-medium text-neutral-800 block truncate max-w-[160px]">
+                            {loi.investment_model}
+                          </span>
+                          <span className="text-[10px] text-neutral-500 capitalize">
+                            Site: {loi.site_status.replace('_', ' ')}
+                          </span>
+                        </td>
+
+                        <td className="p-3.5">
+                          <span
+                            className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${
+                              loi.status === 'approved'
+                                ? 'bg-emerald-100 text-emerald-800 border-emerald-400'
+                                : loi.status === 'territory_reserved'
+                                ? 'bg-purple-100 text-purple-800 border-purple-400'
+                                : loi.status === 'agreement_sent'
+                                ? 'bg-blue-100 text-blue-800 border-blue-400'
+                                : loi.status === 'under_review'
+                                ? 'bg-amber-100 text-amber-900 border-amber-400'
+                                : loi.status === 'rejected'
+                                ? 'bg-rose-100 text-rose-800 border-rose-400'
+                                : 'bg-neutral-100 text-neutral-800 border-neutral-400'
+                            }`}
+                          >
+                            {loi.status.replace('_', ' ')}
+                          </span>
+                          {loi.assigned_manager && (
+                            <span className="text-[10px] text-neutral-500 block mt-0.5 font-medium">
+                              Mgr: {loi.assigned_manager}
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="p-3.5 text-right space-x-1.5 whitespace-nowrap">
+                          <button
+                            onClick={() => {
+                              setSelectedLoi(loi);
+                              setLoiAdminNotes(loi.admin_notes || '');
+                              setLoiAssignedManager(loi.assigned_manager || '');
+                            }}
+                            className="p-1.5 rounded-lg border border-black bg-[#FFD100] hover:bg-[#ffe14c] text-black shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] transition-transform inline-flex items-center gap-1 font-bold text-[11px]"
+                            title="Review LOI Legal Document"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>Review & E-Stamp</span>
+                          </button>
+
+                          <button
+                            onClick={() => handleOpenCustomizeModal(loi)}
+                            className="p-1.5 rounded-lg border border-black bg-purple-100 hover:bg-purple-200 text-purple-900 shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] transition-transform inline-flex items-center gap-1 font-bold text-[11px]"
+                            title="Customize Commercial Terms & Send Revision"
+                          >
+                            <Sparkles className="w-3.5 h-3.5 text-purple-700" />
+                            <span>Customize Terms</span>
+                          </button>
+
+                          <button
+                            onClick={() => handleDeleteLoi(loi.id)}
+                            className="p-1.5 rounded-lg border border-black bg-rose-100 hover:bg-rose-200 text-rose-800 shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] transition-transform inline-flex items-center"
+                            title="Delete LOI"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+
+                  {lois.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="p-8 text-center text-neutral-500">
+                        <FileText className="w-8 h-8 mx-auto text-neutral-400 mb-2" />
+                        <p className="font-bold text-sm">No Letter of Intent (LOI) submissions yet.</p>
+                        <p className="text-xs text-neutral-400 mt-1">
+                          Prospective investors who submit their formal commitment on /loi will appear here.
+                        </p>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* LOI REVIEW & MANAGEMENT MODAL / DRAWER */}
+          {selectedLoi && (
+            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+              <div className="bg-white border-3 border-black rounded-3xl w-full max-w-5xl max-h-[92vh] flex flex-col shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] overflow-hidden">
+                {/* Modal Top Bar */}
+                <div className="bg-[#FFF8E7] border-b-2 border-black p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-[#FF5C00] border-2 border-black flex items-center justify-center text-white shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]">
+                      <FileText className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-black text-sm text-black">
+                          {selectedLoi.loi_number}
+                        </span>
+                        <span className="text-xs font-bold bg-white px-2 py-0.5 rounded border border-black text-neutral-700">
+                          {selectedLoi.target_city}
+                        </span>
+                      </div>
+                      <p className="text-xs text-neutral-500 font-medium">
+                        Submitted by <strong>{selectedLoi.full_name}</strong> on{' '}
+                        {new Date(selectedLoi.created_at).toLocaleDateString('en-IN', {
+                          day: '2-digit',
+                          month: 'long',
+                          year: 'numeric',
+                        })}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => setSelectedLoi(null)}
+                    className="p-2 rounded-xl border-2 border-black bg-white hover:bg-neutral-100 text-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Modal Scrollable Body */}
+                <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-6">
+                  {/* Administrative Action Control Panel */}
+                  <div className="p-5 rounded-2xl bg-neutral-50 border-2 border-black space-y-4">
+                    <h3 className="text-xs font-black uppercase tracking-wider text-black flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-[#FF5C00]" />
+                      <span>Corporate Committee Decision & Workflow</span>
+                    </h3>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      {/* Change Status */}
+                      <div>
+                        <label className="block text-[11px] font-black uppercase text-neutral-700 mb-1">
+                          Update LOI Review Status
+                        </label>
+                        <select
+                          value={selectedLoi.status}
+                          onChange={(e) =>
+                            handleUpdateLoiStatus(
+                              selectedLoi.id,
+                              e.target.value as LoiStatus,
+                              loiAssignedManager,
+                              loiAdminNotes
+                            )
+                          }
+                          disabled={isUpdatingLoi}
+                          className="w-full p-2.5 rounded-xl border-2 border-black font-black uppercase text-xs bg-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                        >
+                          <option value="submitted">1. Submitted (New)</option>
+                          <option value="under_review">2. Under Due Diligence</option>
+                          <option value="territory_reserved">3. 30-Day Territory Reserved</option>
+                          <option value="agreement_sent">4. Master Agreement Sent</option>
+                          <option value="approved">5. Approved & Executed</option>
+                          <option value="rejected">6. Rejected / Ineligible</option>
+                        </select>
+                      </div>
+
+                      {/* Assigned Manager */}
+                      <div>
+                        <label className="block text-[11px] font-black uppercase text-neutral-700 mb-1">
+                          Assigned Relationship Lead
+                        </label>
+                        <input
+                          type="text"
+                          value={loiAssignedManager}
+                          onChange={(e) => setLoiAssignedManager(e.target.value)}
+                          placeholder="e.g. Rohan Verma (Director Expansion)"
+                          className="w-full p-2.5 rounded-xl border-2 border-black font-bold text-xs bg-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                        />
+                      </div>
+
+                      {/* Contact Quick Links */}
+                      <div>
+                        <label className="block text-[11px] font-black uppercase text-neutral-700 mb-1">
+                          Direct Due Diligence Actions
+                        </label>
+                        <div className="flex gap-2">
+                          <a
+                            href={`tel:${selectedLoi.phone}`}
+                            className="flex-1 py-2 rounded-xl border-2 border-black bg-white hover:bg-neutral-100 text-black font-bold text-xs flex items-center justify-center gap-1 shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]"
+                          >
+                            <Phone className="w-3 h-3 text-[#FF5C00]" />
+                            <span>Call</span>
+                          </a>
+                          <a
+                            href={`https://wa.me/${selectedLoi.phone.replace(/\D/g, '')}?text=Hello%20${encodeURIComponent(
+                              selectedLoi.full_name
+                            )},%20this%20is%20Sugartown%20Retail%20HQ%20regarding%20your%20Standard%20Franchise%20LOI%20(${encodeURIComponent(
+                              selectedLoi.loi_number
+                            )})%20for%20${encodeURIComponent(selectedLoi.target_city)}.`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-1 py-2 rounded-xl border-2 border-black bg-emerald-50 hover:bg-emerald-100 text-emerald-900 font-bold text-xs flex items-center justify-center gap-1 shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]"
+                          >
+                            <span>WhatsApp</span>
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Committee Internal Notes */}
+                    <div>
+                      <label className="block text-[11px] font-black uppercase text-neutral-700 mb-1">
+                        Corporate Audit Notes & Verification Comments
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={loiAdminNotes}
+                        onChange={(e) => setLoiAdminNotes(e.target.value)}
+                        placeholder="e.g. Verified bank statement. Target mall location approved. Agreement drafted."
+                        className="w-full p-2.5 rounded-xl border-2 border-black font-medium text-xs bg-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                      />
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <button
+                        onClick={() => {
+                          const loiToCust = selectedLoi;
+                          handleOpenCustomizeModal(loiToCust);
+                        }}
+                        className="py-2 px-4 rounded-xl border-2 border-black bg-purple-100 hover:bg-purple-200 text-purple-900 font-black text-xs inline-flex items-center gap-1.5 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] cursor-pointer"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-purple-700" />
+                        <span>Customize Commercial Terms & Resend to Investor</span>
+                      </button>
+
+                      <button
+                        onClick={() =>
+                          handleUpdateLoiStatus(
+                            selectedLoi.id,
+                            selectedLoi.status,
+                            loiAssignedManager,
+                            loiAdminNotes
+                          )
+                        }
+                        disabled={isUpdatingLoi}
+                        className="bento-btn-primary py-2 px-5 text-xs"
+                      >
+                        <Save className="w-3.5 h-3.5" />
+                        <span>{isUpdatingLoi ? 'Updating...' : 'Save Decision & Notes'}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Full High-Fidelity Printable LOI Legal Draft */}
+                  <div>
+                    <h3 className="text-sm font-black uppercase tracking-wide text-black mb-3 flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-[#FF5C00]" />
+                      <span>Formal Standard LOI Legal Document</span>
+                    </h3>
+                    <LoiDocumentPreview loi={selectedLoi} isConfirmed={true} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* CUSTOMIZE LOI COMMERCIAL TERMS MODAL */}
+          {customizingLoi && (
+            <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
+              <div className="bg-white border-3 border-black rounded-3xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-[10px_10px_0px_0px_rgba(0,0,0,1)] overflow-hidden">
+                {/* Modal Header */}
+                <div className="bg-gradient-to-r from-purple-100 via-pink-50 to-amber-100 border-b-2 border-black p-4 sm:p-6 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-purple-600 border-2 border-black flex items-center justify-center text-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]">
+                      <Sparkles className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-purple-200 text-purple-900 border border-purple-400">
+                          Revision Studio
+                        </span>
+                        <span className="font-mono font-bold text-xs text-neutral-600">
+                          {customizingLoi.loi_number}
+                        </span>
+                      </div>
+                      <h2 className="text-lg sm:text-xl font-black font-display uppercase tracking-tight text-black mt-0.5">
+                        Customize LOI Terms for {customizingLoi.full_name}
+                      </h2>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => setCustomizingLoi(null)}
+                    className="p-1.5 rounded-xl border-2 border-black bg-white hover:bg-neutral-100 shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] cursor-pointer"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                {/* Modal Form Content */}
+                <form
+                  onSubmit={handleSaveCustomLoi}
+                  className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6"
+                >
+                  {customLoiSuccessMsg && (
+                    <div className="p-4 rounded-2xl bg-emerald-50 border-2 border-emerald-500 text-emerald-950 space-y-2 shadow-[2px_2px_0px_0px_rgba(16,185,129,0.3)]">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+                        <p className="text-xs font-black uppercase tracking-wider">{customLoiSuccessMsg}</p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const link = `${window.location.origin}/loi?ref=${customizingLoi.loi_number}`;
+                            navigator.clipboard.writeText(link);
+                            setCopiedLoiLink(true);
+                            setTimeout(() => setCopiedLoiLink(false), 3000);
+                          }}
+                          className="px-3 py-1 rounded-xl bg-white border border-emerald-600 text-black text-xs font-black uppercase tracking-wider inline-flex items-center gap-1 shadow-xs cursor-pointer hover:bg-emerald-100"
+                        >
+                          <Share2 className="w-3.5 h-3.5 text-emerald-700" />
+                          <span>{copiedLoiLink ? 'Copied Link!' : 'Copy Investor Review Link'}</span>
+                        </button>
+
+                        <a
+                          href={`https://wa.me/${customizingLoi.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(
+                            `Hello ${customizingLoi.full_name}, Sugartown Corporate Committee has approved your Franchise LOI for ${customizingLoi.target_city} with customized commercial covenants! Please review the revised LOI draft (Revision #${customizingLoi.revision_number || 2}) and give your digital approval here: ${window.location.origin}/loi?ref=${customizingLoi.loi_number}`
+                          )}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3 py-1 rounded-xl bg-emerald-600 text-white text-xs font-black uppercase tracking-wider inline-flex items-center gap-1 shadow-xs hover:bg-emerald-700"
+                        >
+                          <span>Send on WhatsApp</span>
+                        </a>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Commercial Parameters Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-[11px] font-black uppercase text-neutral-700 mb-1">
+                        Target City & State
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={customLoiForm.target_city}
+                        onChange={(e) =>
+                          setCustomLoiForm((p) => ({ ...p, target_city: e.target.value }))
+                        }
+                        className="w-full p-2.5 rounded-xl border-2 border-black font-bold text-xs bg-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-black uppercase text-neutral-700 mb-1">
+                        Committed Investment (₹)
+                      </label>
+                      <input
+                        type="number"
+                        step="50000"
+                        required
+                        value={customLoiForm.investment_amount_committed}
+                        onChange={(e) =>
+                          setCustomLoiForm((p) => ({
+                            ...p,
+                            investment_amount_committed: Number(e.target.value),
+                          }))
+                        }
+                        className="w-full p-2.5 rounded-xl border-2 border-black font-bold text-xs bg-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-black uppercase text-neutral-700 mb-1">
+                        Territory Exclusivity (Days)
+                      </label>
+                      <select
+                        value={customLoiForm.territory_exclusivity_days}
+                        onChange={(e) =>
+                          setCustomLoiForm((p) => ({
+                            ...p,
+                            territory_exclusivity_days: Number(e.target.value),
+                          }))
+                        }
+                        className="w-full p-2.5 rounded-xl border-2 border-black font-bold text-xs bg-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                      >
+                        <option value={30}>30 Days (Standard Tier-1)</option>
+                        <option value={45}>45 Days (Recommended)</option>
+                        <option value={60}>60 Days (Prime Mall Lease Audit)</option>
+                        <option value={90}>90 Days (Multi-Unit Master)</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-black uppercase text-neutral-700 mb-1">
+                        Partner Net Profit Share (%)
+                      </label>
+                      <input
+                        type="number"
+                        min="50"
+                        max="100"
+                        value={customLoiForm.custom_royalty_percentage}
+                        onChange={(e) =>
+                          setCustomLoiForm((p) => ({
+                            ...p,
+                            custom_royalty_percentage: Number(e.target.value),
+                          }))
+                        }
+                        placeholder="e.g. 95"
+                        className="w-full p-2.5 rounded-xl border-2 border-black font-bold text-xs bg-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                      />
+                    </div>
+
+                    <div className="sm:col-span-2">
+                      <label className="block text-[11px] font-black uppercase text-neutral-700 mb-1">
+                        Preferred Location / Commercial Zone
+                      </label>
+                      <input
+                        type="text"
+                        value={customLoiForm.preferred_location}
+                        onChange={(e) =>
+                          setCustomLoiForm((p) => ({ ...p, preferred_location: e.target.value }))
+                        }
+                        placeholder="e.g. Phoenix Marketcity / High-Street Mall Food Atrium"
+                        className="w-full p-2.5 rounded-xl border-2 border-black font-medium text-xs bg-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Grants & Special Subsidies */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[11px] font-black uppercase text-neutral-700 mb-1">
+                        Special Grants / Capex Subsidy
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={customLoiForm.special_rebates_or_support}
+                        onChange={(e) =>
+                          setCustomLoiForm((p) => ({
+                            ...p,
+                            special_rebates_or_support: e.target.value,
+                          }))
+                        }
+                        placeholder="e.g. Sugartown HQ to provide ₹1,50,000 Inaugural Marketing Grant..."
+                        className="w-full p-2.5 rounded-xl border-2 border-black font-medium text-xs bg-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-black uppercase text-neutral-700 mb-1">
+                        Custom FOCO Payout Schedule
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={customLoiForm.custom_foco_payout_terms}
+                        onChange={(e) =>
+                          setCustomLoiForm((p) => ({
+                            ...p,
+                            custom_foco_payout_terms: e.target.value,
+                          }))
+                        }
+                        placeholder="e.g. Monthly net profit remittance credited directly on the 5th..."
+                        className="w-full p-2.5 rounded-xl border-2 border-black font-medium text-xs bg-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Custom Clauses Editor */}
+                  <div className="p-4 rounded-2xl bg-neutral-50 border-2 border-black space-y-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-black uppercase tracking-wider text-black flex items-center gap-1.5">
+                        <FileText className="w-4 h-4 text-[#FF5C00]" />
+                        <span>Custom Legal Clauses (Section 3 of LOI)</span>
+                      </h4>
+                      <span className="text-[11px] font-bold text-neutral-500">
+                        {customLoiForm.custom_terms.length} Clauses Added
+                      </span>
+                    </div>
+
+                    {/* Existing Custom Clauses List */}
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                      {customLoiForm.custom_terms.map((clause, idx) => (
+                        <div
+                          key={idx}
+                          className="p-2.5 rounded-xl bg-white border border-neutral-300 flex items-start gap-2 text-xs"
+                        >
+                          <span className="w-5 h-5 rounded-full bg-[#FFD100] border border-black text-black font-bold flex items-center justify-center text-[10px] flex-shrink-0 mt-0.5">
+                            {idx + 1}
+                          </span>
+                          <p className="flex-1 font-medium text-neutral-800 leading-snug">{clause}</p>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveCustomClause(idx)}
+                            className="text-rose-600 hover:text-rose-800 p-1 font-bold"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Add New Custom Clause */}
+                    <div className="flex gap-2 pt-1">
+                      <input
+                        type="text"
+                        value={newClauseInput}
+                        onChange={(e) => setNewClauseInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddCustomClause();
+                          }
+                        }}
+                        placeholder="Type custom condition (e.g. Master candy craftsmen deployment guaranteed with zero hiring cost...)"
+                        className="flex-1 p-2 rounded-xl border-2 border-black font-medium text-xs bg-white shadow-[1px_1px_0px_0px_rgba(0,0,0,1)]"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddCustomClause}
+                        className="px-4 py-2 rounded-xl bg-neutral-900 hover:bg-black text-white text-xs font-black uppercase tracking-wider cursor-pointer"
+                      >
+                        Add Clause
+                      </button>
+                    </div>
+
+                    {/* Quick Presets */}
+                    <div className="pt-2 flex flex-wrap items-center gap-1.5 text-[10px]">
+                      <span className="font-bold text-neutral-500 uppercase">Quick Presets:</span>
+                      {[
+                        'Zero-cost replacement on candy theater motorized warmers for 5 years.',
+                        'Right of First Refusal (ROFR) for 2nd outlet opening within 5 km radius.',
+                        'Pre-opening 14-day digital influencer blitz sponsored 100% by Sugartown HQ.',
+                      ].map((preset, pIdx) => (
+                        <button
+                          key={pIdx}
+                          type="button"
+                          onClick={() => {
+                            if (!customLoiForm.custom_terms.includes(preset)) {
+                              setCustomLoiForm((prev) => ({
+                                ...prev,
+                                custom_terms: [...prev.custom_terms, preset],
+                              }));
+                            }
+                          }}
+                          className="px-2 py-0.5 rounded-md bg-white border border-neutral-300 hover:bg-neutral-100 text-neutral-700 font-medium"
+                        >
+                          + {preset.slice(0, 32)}...
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Notes & Authority Sign-off */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[11px] font-black uppercase text-neutral-700 mb-1">
+                        Corporate Committee Rationale Note (Sent to Investor)
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={customLoiForm.custom_terms_notes}
+                        onChange={(e) =>
+                          setCustomLoiForm((p) => ({ ...p, custom_terms_notes: e.target.value }))
+                        }
+                        placeholder="e.g. Terms modified to provide extended launch timeline and marketing grant..."
+                        className="w-full p-2.5 rounded-xl border-2 border-black font-medium text-xs bg-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-black uppercase text-neutral-700 mb-1">
+                        Authorized Allotment Signatory *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={customLoiForm.adminName}
+                        onChange={(e) =>
+                          setCustomLoiForm((p) => ({ ...p, adminName: e.target.value }))
+                        }
+                        className="w-full p-2.5 rounded-xl border-2 border-black font-bold text-xs bg-white shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Modal Action Buttons */}
+                  <div className="pt-4 border-t-2 border-neutral-200 flex flex-wrap items-center justify-between gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setCustomizingLoi(null)}
+                      className="px-5 py-2.5 rounded-xl border-2 border-black font-black uppercase text-xs hover:bg-neutral-100"
+                    >
+                      Close
+                    </button>
+
+                    <button
+                      type="submit"
+                      disabled={isSavingCustomLoi}
+                      className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-black uppercase tracking-wider border-2 border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all cursor-pointer"
+                    >
+                      {isSavingCustomLoi ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>Generating Revised LOI Draft...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4" />
+                          <span>Save Customized LOI & Send to Investor</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
           )}

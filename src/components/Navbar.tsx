@@ -39,6 +39,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPath = '/', onNavigate })
     { label: 'FOCO Model', path: '/foco' },
     { label: 'Investment Plans', path: '/investment' },
     { label: 'ROI Calculator', path: '/calculator' },
+    { label: 'Standard LOI', path: '/loi' },
     { label: 'India Expansion', path: '/india-expansion' },
     { label: 'Company Docs', path: '/company-documents' },
     { label: 'Store Roadmap', path: '/roadmap' },
@@ -161,6 +162,20 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPath = '/', onNavigate })
             >
               <span>Apply for Franchise</span>
               <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+
+            {/* Standard LOI Submission & Review Button */}
+            <button
+              id="sub-header-loi-btn"
+              onClick={() => handleNavClick('/loi')}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-black uppercase tracking-wider border-2 transition-all ${
+                currentPath === '/loi'
+                  ? 'bg-[#FFD100] text-black border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
+                  : 'bg-white hover:bg-neutral-50 text-neutral-800 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:-translate-x-0.5 hover:-translate-y-0.5'
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5 text-[#FF5C00]" />
+              <span>Standard LOI</span>
             </button>
 
             {/* Quick FAQ Button */}

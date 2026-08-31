@@ -1,6 +1,7 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { db } from './db';
 import { sendLeadNotificationEmail } from './email';
+import { FranchiseLoi } from '../src/types';
 
 export const apiRouter = Router();
 
@@ -271,6 +272,180 @@ apiRouter.post('/submit-franchise-inquiry', async (req: Request, res: Response) 
       phone: '9145448010',
     });
   }
+});
+
+// Standard Franchise Letter of Intent (LOI) Submission
+apiRouter.post('/submit-franchise-loi', async (req: Request, res: Response) => {
+  try {
+    const {
+      full_name,
+      entity_type,
+      entity_name,
+      pan_number,
+      aadhaar_or_id,
+      email,
+      phone,
+      whatsapp,
+      current_address,
+      current_city,
+      current_state,
+      pin_code,
+      profession_background,
+      existing_business_details,
+      investment_model,
+      investment_amount_committed,
+      target_city,
+      target_state,
+      preferred_location,
+      site_status,
+      proposed_carpet_area_sqft,
+      source_of_funds,
+      target_launch_timeline,
+      accepts_foco_model,
+      accepts_confidentiality_nda,
+      accepts_commercial_terms,
+      territory_exclusivity_requested,
+      signatory_name,
+      signatory_title,
+    } = req.body;
+
+    // Strict Validations
+    if (!full_name || String(full_name).trim().length < 2) {
+      return res.status(400).json({ error: 'Please enter your full legal name.' });
+    }
+
+    const rawPhone = phone || whatsapp || '';
+    const phoneDigits = String(rawPhone).replace(/\D/g, '');
+    if (!phoneDigits || phoneDigits.length < 10) {
+      return res.status(400).json({ error: 'Please provide a valid 10-digit mobile number.' });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || !emailRegex.test(String(email).trim())) {
+      return res.status(400).json({ error: 'Please provide a valid email address.' });
+    }
+
+    if (!target_city || String(target_city).trim().length === 0) {
+      return res.status(400).json({ error: 'Target city / territory is required for LOI submission.' });
+    }
+
+    if (!accepts_foco_model || !accepts_confidentiality_nda || !accepts_commercial_terms) {
+      return res.status(400).json({ error: 'You must confirm and accept the FOCO terms, NDA, and commercial declarations.' });
+    }
+
+    const cleanPhone = `+91${phoneDigits.slice(-10)}`;
+    const cleanWhatsapp = whatsapp ? `+91${String(whatsapp).replace(/\D/g, '').slice(-10)}` : cleanPhone;
+    const clientIp = getClientIdentifier(req);
+
+    const loi = db.createLoi({
+      full_name: String(full_name).trim(),
+      entity_type: entity_type || 'individual',
+      entity_name: entity_name ? String(entity_name).trim() : undefined,
+      pan_number: pan_number ? String(pan_number).trim().toUpperCase() : undefined,
+      aadhaar_or_id: aadhaar_or_id ? String(aadhaar_or_id).trim() : undefined,
+      email: String(email).trim().toLowerCase(),
+      phone: cleanPhone,
+      whatsapp: cleanWhatsapp,
+      current_address: String(current_address || '').trim(),
+      current_city: String(current_city || target_city).trim(),
+      current_state: String(current_state || target_state || '').trim(),
+      pin_code: pin_code ? String(pin_code).trim() : undefined,
+      profession_background: String(profession_background || 'Franchise Investor').trim(),
+      existing_business_details: existing_business_details ? String(existing_business_details).trim() : undefined,
+      investment_model: String(investment_model || 'Express Kiosk & High-Street Boutique (₹25L)').trim(),
+      investment_amount_committed: Number(investment_amount_committed) || 2500000,
+      target_city: String(target_city).trim(),
+      target_state: String(target_state || '').trim(),
+      preferred_location: String(preferred_location || 'Prime Commercial / Mall Hub').trim(),
+      site_status: site_status || 'identifying',
+      proposed_carpet_area_sqft: proposed_carpet_area_sqft ? Number(proposed_carpet_area_sqft) : undefined,
+      source_of_funds: source_of_funds || 'self_liquid',
+      target_launch_timeline: target_launch_timeline || '45_days',
+      accepts_foco_model: Boolean(accepts_foco_model),
+      accepts_confidentiality_nda: Boolean(accepts_confidentiality_nda),
+      accepts_commercial_terms: Boolean(accepts_commercial_terms),
+      territory_exclusivity_requested: Boolean(territory_exclusivity_requested),
+      signatory_name: String(signatory_name || full_name).trim(),
+      signatory_title: String(signatory_title || 'Principal Investor').trim(),
+      submission_date: new Date().toISOString(),
+      ip_address: clientIp,
+    });
+
+    return res.status(201).json({
+      success: true,
+      loi_id: loi.id,
+      loi_number: loi.loi_number,
+      message: `Standard Letter of Intent ${loi.loi_number} successfully registered. Sugartown Corporate Board will review your intent within 48 hours.`,
+      loi,
+    });
+  } catch (error: any) {
+    console.error('Error processing standard LOI:', error);
+    return res.status(500).json({
+      error: 'An unexpected error occurred while generating your LOI document. Please retry or contact HQ.',
+    });
+  }
+});
+
+// Public LOI Document Retrieval (by LOI Number or Unique ID)
+apiRouter.get('/lois/:id', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const loi = db.getLoiById(id);
+  if (!loi) {
+    return res.status(404).json({ error: 'Letter of Intent not found with the specified reference or ID.' });
+  }
+  res.json(loi);
+});
+
+// Investor Digital Approval & Resubmission of Customized LOI
+apiRouter.post('/lois/:id/approve', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { signatory_name, approval_notes } = req.body;
+  if (!signatory_name || String(signatory_name).trim().length < 2) {
+    return res.status(400).json({ error: 'Please provide your full legal name for digital e-signature.' });
+  }
+
+  const clientIp = getClientIdentifier(req);
+  const updated = db.investorApproveLoi(id, {
+    signatory_name: String(signatory_name).trim(),
+    approval_notes: approval_notes ? String(approval_notes).trim() : undefined,
+    ip: clientIp,
+  });
+
+  if (!updated) {
+    return res.status(404).json({ error: 'Letter of Intent not found.' });
+  }
+
+  return res.json({
+    success: true,
+    message: `LOI ${updated.loi_number} successfully approved and resubmitted with customized terms.`,
+    loi: updated,
+  });
+});
+
+// Investor Counter / Clarification Request
+apiRouter.post('/lois/:id/counter', (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { notes, requested_by } = req.body;
+  if (!notes || String(notes).trim().length < 5) {
+    return res.status(400).json({ error: 'Please describe the modifications or clarifications you wish to discuss.' });
+  }
+
+  const clientIp = getClientIdentifier(req);
+  const updated = db.investorCounterLoi(id, {
+    notes: String(notes).trim(),
+    requested_by: requested_by ? String(requested_by).trim() : undefined,
+    ip: clientIp,
+  });
+
+  if (!updated) {
+    return res.status(404).json({ error: 'Letter of Intent not found.' });
+  }
+
+  return res.json({
+    success: true,
+    message: 'Your feedback and modification request have been submitted to the Corporate Allotment Committee.',
+    loi: updated,
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -546,6 +721,180 @@ apiRouter.post('/admin/leads/:id/notes', requireAdminAuth, (req: Request, res: R
   const newNote = db.addLeadNote(id, author || 'Administrator', note);
   if (!newNote) return res.status(404).json({ error: 'Lead not found.' });
   res.json(newNote);
+});
+
+// -------------------------------------------------------------
+// ADMIN LOI (LETTER OF INTENT) MANAGEMENT ENDPOINTS
+// -------------------------------------------------------------
+
+apiRouter.get('/admin/lois', requireAdminAuth, (req: Request, res: Response) => {
+  const { search, status, city, investment } = req.query;
+  let lois = db.getLois();
+
+  if (search && typeof search === 'string') {
+    const q = search.toLowerCase();
+    lois = lois.filter(
+      (l) =>
+        (l.full_name && l.full_name.toLowerCase().includes(q)) ||
+        (l.email && l.email.toLowerCase().includes(q)) ||
+        ((l.phone || l.whatsapp || '').includes(q)) ||
+        (l.target_city && l.target_city.toLowerCase().includes(q)) ||
+        (l.current_city && l.current_city.toLowerCase().includes(q)) ||
+        (l.loi_number && l.loi_number.toLowerCase().includes(q)) ||
+        (l.entity_name && l.entity_name.toLowerCase().includes(q))
+    );
+  }
+
+  if (status && typeof status === 'string' && status !== 'all') {
+    lois = lois.filter((l) => l.status === status);
+  }
+
+  if (city && typeof city === 'string' && city !== 'all') {
+    lois = lois.filter(
+      (l) =>
+        (l.target_city && l.target_city.toLowerCase() === city.toLowerCase()) ||
+        (l.current_city && l.current_city.toLowerCase() === city.toLowerCase())
+    );
+  }
+
+  if (investment && typeof investment === 'string' && investment !== 'all') {
+    lois = lois.filter((l) => l.investment_model.includes(investment));
+  }
+
+  res.json(lois);
+});
+
+apiRouter.get('/admin/lois/:id', requireAdminAuth, (req: Request, res: Response) => {
+  const { id } = req.params;
+  const loi = db.getLoiById(id);
+  if (!loi) return res.status(404).json({ error: 'Letter of Intent not found.' });
+  res.json(loi);
+});
+
+apiRouter.patch('/admin/lois/:id/status', requireAdminAuth, (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { status, assigned_manager, admin_notes } = req.body;
+  if (!status) return res.status(400).json({ error: 'Status is required.' });
+
+  const updated = db.updateLoiStatus(id, status, assigned_manager, admin_notes);
+  if (!updated) return res.status(404).json({ error: 'Letter of Intent not found.' });
+  res.json(updated);
+});
+
+apiRouter.put('/admin/lois/:id/customize', requireAdminAuth, (req: Request, res: Response) => {
+  const { id } = req.params;
+  const {
+    investment_model,
+    investment_amount_committed,
+    target_city,
+    target_state,
+    preferred_location,
+    site_status,
+    proposed_carpet_area_sqft,
+    source_of_funds,
+    target_launch_timeline,
+    custom_terms,
+    custom_terms_notes,
+    custom_royalty_percentage,
+    custom_foco_payout_terms,
+    territory_exclusivity_days,
+    special_rebates_or_support,
+    assigned_manager,
+    admin_notes,
+    adminName,
+  } = req.body;
+
+  const updates: Partial<FranchiseLoi> = {
+    ...(investment_model !== undefined ? { investment_model } : {}),
+    ...(investment_amount_committed !== undefined
+      ? { investment_amount_committed: Number(investment_amount_committed) }
+      : {}),
+    ...(target_city !== undefined ? { target_city } : {}),
+    ...(target_state !== undefined ? { target_state } : {}),
+    ...(preferred_location !== undefined ? { preferred_location } : {}),
+    ...(site_status !== undefined ? { site_status } : {}),
+    ...(proposed_carpet_area_sqft !== undefined
+      ? { proposed_carpet_area_sqft: Number(proposed_carpet_area_sqft) }
+      : {}),
+    ...(source_of_funds !== undefined ? { source_of_funds } : {}),
+    ...(target_launch_timeline !== undefined ? { target_launch_timeline } : {}),
+    ...(custom_terms !== undefined ? { custom_terms: Array.isArray(custom_terms) ? custom_terms : [] } : {}),
+    ...(custom_terms_notes !== undefined ? { custom_terms_notes } : {}),
+    ...(custom_royalty_percentage !== undefined
+      ? { custom_royalty_percentage: Number(custom_royalty_percentage) }
+      : {}),
+    ...(custom_foco_payout_terms !== undefined ? { custom_foco_payout_terms } : {}),
+    ...(territory_exclusivity_days !== undefined
+      ? { territory_exclusivity_days: Number(territory_exclusivity_days) }
+      : {}),
+    ...(special_rebates_or_support !== undefined ? { special_rebates_or_support } : {}),
+    ...(assigned_manager !== undefined ? { assigned_manager } : {}),
+    ...(admin_notes !== undefined ? { admin_notes } : {}),
+  };
+
+  const updated = db.customizeLoi(id, updates, adminName || 'Sugartown Corporate Expansion Committee');
+  if (!updated) return res.status(404).json({ error: 'Letter of Intent not found.' });
+
+  res.json({
+    success: true,
+    message: `Customized LOI (Revision #${updated.revision_number}) prepared and ready for investor approval.`,
+    loi: updated,
+  });
+});
+
+apiRouter.delete('/admin/lois/:id', requireAdminAuth, (req: Request, res: Response) => {
+  const { id } = req.params;
+  const deleted = db.deleteLoi(id);
+  if (!deleted) return res.status(404).json({ error: 'Letter of Intent not found.' });
+  res.json({ success: true, message: 'LOI record removed.' });
+});
+
+apiRouter.get('/admin/lois/export-csv', requireAdminAuth, (req: Request, res: Response) => {
+  const lois = db.getLois();
+  const headers = [
+    'LOI Number',
+    'Investor Name',
+    'Entity Type',
+    'Entity Name',
+    'Phone',
+    'Email',
+    'Target City',
+    'Preferred Location',
+    'Investment Model',
+    'Committed Amount (INR)',
+    'Site Status',
+    'Carpet Area (sqft)',
+    'Source of Funds',
+    'Timeline',
+    'Status',
+    'Assigned Manager',
+    'Submission Date',
+  ];
+
+  const rows = lois.map((l) => [
+    `"${l.loi_number}"`,
+    `"${l.full_name.replace(/"/g, '""')}"`,
+    `"${l.entity_type}"`,
+    `"${(l.entity_name || '').replace(/"/g, '""')}"`,
+    `"${l.phone}"`,
+    `"${l.email}"`,
+    `"${(l.target_city || '').replace(/"/g, '""')}"`,
+    `"${(l.preferred_location || '').replace(/"/g, '""')}"`,
+    `"${(l.investment_model || '').replace(/"/g, '""')}"`,
+    `"${l.investment_amount_committed}"`,
+    `"${l.site_status}"`,
+    `"${l.proposed_carpet_area_sqft || 0}"`,
+    `"${l.source_of_funds}"`,
+    `"${l.target_launch_timeline}"`,
+    `"${l.status}"`,
+    `"${(l.assigned_manager || '').replace(/"/g, '""')}"`,
+    `"${l.created_at}"`,
+  ]);
+
+  const csv = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', `attachment; filename=sugartown-franchise-lois-${Date.now()}.csv`);
+  res.send(csv);
 });
 
 apiRouter.put('/admin/investments/:id', requireAdminAuth, (req: Request, res: Response) => {

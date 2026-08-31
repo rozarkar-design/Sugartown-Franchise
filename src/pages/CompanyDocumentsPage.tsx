@@ -251,6 +251,15 @@ may verify authenticity on respective public portals.
 
             <div className="flex items-center gap-2 flex-wrap">
               <button
+                id="submit-loi-banner-btn"
+                onClick={() => onNavigate('/loi')}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-[#FFD100] hover:bg-[#ffe14c] text-black text-xs font-black uppercase tracking-wider border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all whitespace-nowrap cursor-pointer"
+              >
+                <FileText className="w-4 h-4 text-[#FF5C00]" />
+                <span>Fill Franchise LOI Online</span>
+              </button>
+
+              <button
                 id="download-master-dossier-btn"
                 onClick={handleDownloadMasterDossier}
                 className="bento-btn-primary py-2.5 px-4 text-xs flex items-center justify-center gap-2 shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] whitespace-nowrap"

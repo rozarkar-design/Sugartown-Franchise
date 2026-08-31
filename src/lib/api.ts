@@ -7,6 +7,8 @@ import {
   ResourceDocument,
   SiteSettings,
   Lead,
+  FranchiseLoi,
+  LoiStatus,
 } from '../types';
 
 export const API_BASE = '/api';
@@ -73,6 +75,26 @@ export async function submitFranchiseInquiry(formData: any): Promise<{
     ...data,
     leadId: data.lead_id || data.leadId,
   };
+}
+
+export async function submitFranchiseLoi(formData: any): Promise<{
+  success: boolean;
+  loi_id: string;
+  loi_number: string;
+  message: string;
+  loi: FranchiseLoi;
+}> {
+  const res = await fetch(`${API_BASE}/submit-franchise-loi`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(formData),
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error || 'Failed to submit Letter of Intent.');
+  }
+  return data;
 }
 
 export async function fetchAllData() {
@@ -385,3 +407,110 @@ export async function updateAdminSettings(payload: any) {
   if (!res.ok) throw new Error('Failed to update settings');
   return res.json();
 }
+
+export async function fetchLoiById(idOrNumber: string): Promise<FranchiseLoi> {
+  const res = await fetch(`${API_BASE}/lois/${encodeURIComponent(idOrNumber)}`);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to fetch LOI record.');
+  }
+  return res.json();
+}
+
+export async function approveCustomizedLoi(
+  id: string,
+  payload: { signatory_name: string; approval_notes?: string }
+): Promise<{ success: boolean; message: string; loi: FranchiseLoi }> {
+  const res = await fetch(`${API_BASE}/lois/${encodeURIComponent(id)}/approve`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error || 'Failed to approve and resubmit customized LOI.');
+  }
+  return data;
+}
+
+export async function counterCustomizedLoi(
+  id: string,
+  payload: { notes: string; requested_by?: string }
+): Promise<{ success: boolean; message: string; loi: FranchiseLoi }> {
+  const res = await fetch(`${API_BASE}/lois/${encodeURIComponent(id)}/counter`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error || 'Failed to submit modification request.');
+  }
+  return data;
+}
+
+// Admin LOI operations
+export async function fetchAdminLois(params?: { search?: string; status?: string; city?: string; investment?: string }): Promise<FranchiseLoi[]> {
+  const query = new URLSearchParams();
+  if (params?.search) query.set('search', params.search);
+  if (params?.status) query.set('status', params.status);
+  if (params?.city) query.set('city', params.city);
+  if (params?.investment) query.set('investment', params.investment);
+
+  const res = await fetch(`${API_BASE}/admin/lois?${query.toString()}`, {
+    headers: getAdminAuthHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to fetch LOIs');
+  return res.json();
+}
+
+export async function fetchAdminLoiById(id: string): Promise<FranchiseLoi> {
+  const res = await fetch(`${API_BASE}/admin/lois/${id}`, {
+    headers: getAdminAuthHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to fetch LOI details');
+  return res.json();
+}
+
+export async function updateAdminLoiStatus(
+  id: string,
+  status: LoiStatus,
+  assigned_manager?: string,
+  admin_notes?: string
+): Promise<FranchiseLoi> {
+  const res = await fetch(`${API_BASE}/admin/lois/${id}/status`, {
+    method: 'PATCH',
+    headers: getAdminAuthHeaders(),
+    body: JSON.stringify({ status, assigned_manager, admin_notes }),
+  });
+  if (!res.ok) throw new Error('Failed to update LOI status');
+  return res.json();
+}
+
+export async function customizeAdminLoi(
+  id: string,
+  payload: Partial<FranchiseLoi> & { adminName?: string }
+): Promise<{ success: boolean; message: string; loi: FranchiseLoi }> {
+  const res = await fetch(`${API_BASE}/admin/lois/${encodeURIComponent(id)}/customize`, {
+    method: 'PUT',
+    headers: getAdminAuthHeaders(),
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(data.error || 'Failed to customize LOI.');
+  }
+  return data;
+}
+
+export async function deleteAdminLoi(id: string) {
+  const res = await fetch(`${API_BASE}/admin/lois/${id}`, {
+    method: 'DELETE',
+    headers: getAdminAuthHeaders(),
+  });
+  if (!res.ok) throw new Error('Failed to delete LOI record');
+  return res.json();
+}
+
+export const exportLoisCsv = `${API_BASE}/admin/lois/export-csv`;
+

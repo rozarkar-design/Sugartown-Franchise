@@ -27,6 +27,7 @@ import { InquiryPage } from './pages/InquiryPage';
 import { ThankYouPage } from './pages/ThankYouPage';
 import { ContactPage } from './pages/ContactPage';
 import { AdminPage } from './pages/AdminPage';
+import { LoiPage } from './pages/LoiPage';
 
 export function App() {
   // Navigation State
@@ -163,6 +164,14 @@ export function App() {
                 initialCity={routeOptions.city}
                 initialModel={routeOptions.model}
                 onSuccess={handleInquirySuccess}
+              />
+            )}
+
+            {(currentPath === '/loi' || currentPath === '/franchise-loi') && (
+              <LoiPage
+                initialCity={routeOptions.city}
+                initialModel={routeOptions.model}
+                onNavigate={navigateTo}
               />
             )}
 
