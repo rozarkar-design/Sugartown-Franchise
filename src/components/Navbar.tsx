@@ -131,12 +131,12 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPath = '/', onNavigate })
       </div>
 
       {/* ==================================================== */}
-      {/* SECOND TIER (SUB-HEADER ACTION STRIP): CONTACT, FAQ, ADMIN & APPLY */}
+      {/* SECOND TIER (SUB-HEADER ACTION STRIP): PHONE, APPLY, FAQ & ADMIN */}
       {/* ==================================================== */}
       <div className="bg-[#FFFDF7] border-b-2 border-black py-2.5 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
-          {/* Left Sub-Header Controls: Hotline Phone & FAQ */}
-          <div className="flex items-center flex-wrap gap-2.5 sm:gap-3">
+          {/* Action Cluster: Mobile Helpline, Apply for Franchise, FAQ & Admin */}
+          <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
             {/* Official Phone Helpline Button */}
             <a
               id="sub-header-call-btn"
@@ -153,6 +153,16 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPath = '/', onNavigate })
               </div>
             </a>
 
+            {/* Apply for Franchise Button - Placed directly below header next to/below mobile number */}
+            <button
+              id="sub-header-apply-cta"
+              onClick={() => handleNavClick('/inquiry')}
+              className="inline-flex items-center gap-2 px-4 sm:px-5 py-1.5 rounded-full bg-[#FF5C00] hover:bg-[#ff4500] text-white text-xs font-black uppercase tracking-wider border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer whitespace-nowrap"
+            >
+              <span>Apply for Franchise</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+
             {/* Quick FAQ Button */}
             <button
               id="sub-header-faq-btn"
@@ -167,15 +177,6 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPath = '/', onNavigate })
               <span>FAQ</span>
             </button>
 
-            {/* Live Operational Status Badge */}
-            <div className="hidden md:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-300 text-[11px] font-bold text-emerald-800">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span>Pune HQ Active (9 AM - 8 PM IST)</span>
-            </div>
-          </div>
-
-          {/* Right Sub-Header Controls: Admin Button & Primary Apply CTA */}
-          <div className="flex items-center gap-2 sm:gap-2.5 ml-auto">
             {/* Admin Portal Button */}
             <button
               id="sub-header-admin-btn"
@@ -190,16 +191,12 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPath = '/', onNavigate })
               <Shield className="w-3.5 h-3.5 text-black" />
               <span>Admin</span>
             </button>
+          </div>
 
-            {/* Apply for Franchise Primary CTA Button */}
-            <button
-              id="sub-header-apply-cta"
-              onClick={() => handleNavClick('/inquiry')}
-              className="inline-flex items-center gap-2 px-4 sm:px-5 py-1.5 rounded-full bg-[#FF5C00] hover:bg-[#ff4500] text-white text-xs font-black uppercase tracking-wider border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer whitespace-nowrap"
-            >
-              <span>Apply for Franchise</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
+          {/* Right Status Badge */}
+          <div className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-300 text-[11px] font-bold text-emerald-800">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span>Pune HQ Active (9 AM - 8 PM IST)</span>
           </div>
         </div>
       </div>
