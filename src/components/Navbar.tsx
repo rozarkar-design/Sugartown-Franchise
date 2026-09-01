@@ -135,9 +135,9 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPath = '/', onNavigate })
       {/* SECOND TIER (ACTION STRIP): HELPLINE, APPLY, ROI CALCULATOR, LOI, COMPANY DOCS, FAQ, ADMIN & PUNE HQ */}
       {/* ==================================================== */}
       <div className="bg-[#FFFDF7] border-b-2 border-black py-1.5 px-3 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto flex items-center overflow-x-auto no-scrollbar py-0.5">
-          {/* Action Cluster - Always on one unified horizontal line */}
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-nowrap min-w-max">
+        <div className="max-w-7xl mx-auto flex items-center justify-center overflow-x-auto no-scrollbar py-0.5">
+          {/* Action Cluster - Perfectly centered on the page on all screens */}
+          <div className="flex items-center justify-center gap-1.5 sm:gap-2.5 flex-nowrap min-w-max mx-auto">
             {/* Official Phone Helpline Button */}
             <a
               id="sub-header-call-btn"
