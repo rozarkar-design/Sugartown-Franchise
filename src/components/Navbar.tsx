@@ -33,15 +33,12 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPath = '/', onNavigate })
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Primary navigation links for top tier
+  // Primary navigation links for top tier (neat, focused brand navigation)
   const mainNavLinks = [
     { label: 'Home', path: '/' },
     { label: 'FOCO Model', path: '/foco' },
     { label: 'Investment Plans', path: '/investment' },
-    { label: 'ROI Calculator', path: '/calculator' },
-    { label: 'Standard LOI', path: '/loi' },
     { label: 'India Expansion', path: '/india-expansion' },
-    { label: 'Company Docs', path: '/company-documents' },
     { label: 'Store Roadmap', path: '/roadmap' },
     { label: 'Resources', path: '/resources' },
     { label: 'Contact HQ', path: '/contact' },
@@ -55,6 +52,9 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPath = '/', onNavigate })
 
   const isAdminRoute = Boolean(currentPath && currentPath.startsWith('/admin'));
   const isFaqActive = currentPath === '/faq';
+  const isCalculatorActive = currentPath === '/calculator';
+  const isLoiActive = currentPath === '/loi';
+  const isDocsActive = currentPath === '/company-documents';
 
   return (
     <header
@@ -96,7 +96,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPath = '/', onNavigate })
             </div>
 
             {/* Desktop Navigation Links (Cleanly Centered/Spaced) */}
-            <nav className="hidden lg:flex items-center gap-1 xl:gap-1.5 flex-wrap justify-end">
+            <nav className="hidden lg:flex items-center gap-1 xl:gap-2 flex-wrap justify-end">
               {mainNavLinks.map((link) => {
                 const active = currentPath === link.path;
                 return (
@@ -104,7 +104,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPath = '/', onNavigate })
                     key={link.path}
                     id={`nav-link-${link.label.toLowerCase().replace(/\s+/g, '-')}`}
                     onClick={() => handleNavClick(link.path)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap ${
+                    className={`px-3.5 py-1.5 rounded-full text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap ${
                       active
                         ? 'text-black bg-[#FFD100] border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
                         : 'text-neutral-700 hover:text-black hover:bg-neutral-100 border-2 border-transparent hover:border-black'
@@ -132,12 +132,12 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPath = '/', onNavigate })
       </div>
 
       {/* ==================================================== */}
-      {/* SECOND TIER (SUB-HEADER ACTION STRIP): PHONE, APPLY, FAQ & ADMIN */}
+      {/* SECOND TIER (ACTION STRIP): HELPLINE, APPLY, ROI CALCULATOR, LOI, COMPANY DOCS, FAQ & ADMIN */}
       {/* ==================================================== */}
       <div className="bg-[#FFFDF7] border-b-2 border-black py-2 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
-          {/* Action Cluster: Mobile Helpline, Apply for Franchise, FAQ & Admin */}
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2.5 sm:gap-3">
+          {/* Action Cluster */}
+          <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
             {/* Official Phone Helpline Button */}
             <a
               id="sub-header-call-btn"
@@ -162,6 +162,48 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPath = '/', onNavigate })
             >
               <span>Apply for Franchise</span>
               <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+
+            {/* ROI Calculator Button */}
+            <button
+              id="sub-header-calculator-btn"
+              onClick={() => handleNavClick('/calculator')}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-black uppercase tracking-wider border-2 transition-all cursor-pointer ${
+                isCalculatorActive
+                  ? 'bg-[#FFD100] text-black border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
+                  : 'bg-white hover:bg-neutral-50 text-neutral-800 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:-translate-x-0.5 hover:-translate-y-0.5'
+              }`}
+            >
+              <Calculator className="w-3.5 h-3.5 text-[#FF5C00]" />
+              <span>ROI Calculator</span>
+            </button>
+
+            {/* Standard LOI Button */}
+            <button
+              id="sub-header-loi-btn"
+              onClick={() => handleNavClick('/loi')}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-black uppercase tracking-wider border-2 transition-all cursor-pointer ${
+                isLoiActive
+                  ? 'bg-[#FFD100] text-black border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
+                  : 'bg-white hover:bg-neutral-50 text-neutral-800 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:-translate-x-0.5 hover:-translate-y-0.5'
+              }`}
+            >
+              <FileText className="w-3.5 h-3.5 text-[#FF5C00]" />
+              <span>Standard LOI</span>
+            </button>
+
+            {/* Company Docs Button */}
+            <button
+              id="sub-header-docs-btn"
+              onClick={() => handleNavClick('/company-documents')}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-black uppercase tracking-wider border-2 transition-all cursor-pointer ${
+                isDocsActive
+                  ? 'bg-[#FFD100] text-black border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
+                  : 'bg-white hover:bg-neutral-50 text-neutral-800 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:-translate-x-0.5 hover:-translate-y-0.5'
+              }`}
+            >
+              <Building2 className="w-3.5 h-3.5 text-[#FF5C00]" />
+              <span>Company Docs</span>
             </button>
 
             {/* Quick FAQ Button */}
@@ -195,7 +237,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPath = '/', onNavigate })
           </div>
 
           {/* Right Status Badge */}
-          <div className="hidden md:inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-300 text-[11px] font-bold text-emerald-900 shadow-xs">
+          <div className="hidden xl:inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-300 text-[11px] font-bold text-emerald-900 shadow-xs">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
             <span>Pune HQ Active (9 AM - 8 PM IST)</span>
           </div>
@@ -227,6 +269,43 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPath = '/', onNavigate })
                 </button>
               );
             })}
+
+            {/* Mobile Actions: ROI Calculator, Standard LOI, Company Docs */}
+            <button
+              onClick={() => handleNavClick('/calculator')}
+              className={`w-full text-left px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-black uppercase tracking-wider border-2 flex items-center gap-2 ${
+                isCalculatorActive
+                  ? 'text-black bg-[#FFD100] border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]'
+                  : 'text-black border-transparent hover:border-black hover:bg-neutral-50'
+              }`}
+            >
+              <Calculator className="w-4 h-4 text-[#FF5C00]" />
+              <span>ROI Calculator</span>
+            </button>
+
+            <button
+              onClick={() => handleNavClick('/loi')}
+              className={`w-full text-left px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-black uppercase tracking-wider border-2 flex items-center gap-2 ${
+                isLoiActive
+                  ? 'text-black bg-[#FFD100] border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]'
+                  : 'text-black border-transparent hover:border-black hover:bg-neutral-50'
+              }`}
+            >
+              <FileText className="w-4 h-4 text-[#FF5C00]" />
+              <span>Standard LOI</span>
+            </button>
+
+            <button
+              onClick={() => handleNavClick('/company-documents')}
+              className={`w-full text-left px-4 py-2.5 rounded-2xl text-xs sm:text-sm font-black uppercase tracking-wider border-2 flex items-center gap-2 ${
+                isDocsActive
+                  ? 'text-black bg-[#FFD100] border-black shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]'
+                  : 'text-black border-transparent hover:border-black hover:bg-neutral-50'
+              }`}
+            >
+              <Building2 className="w-4 h-4 text-[#FF5C00]" />
+              <span>Company Documents</span>
+            </button>
 
             <button
               onClick={() => handleNavClick('/faq')}
