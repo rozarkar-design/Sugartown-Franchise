@@ -134,10 +134,10 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPath = '/', onNavigate })
       {/* ==================================================== */}
       {/* SECOND TIER (SUB-HEADER ACTION STRIP): PHONE, APPLY, FAQ & ADMIN */}
       {/* ==================================================== */}
-      <div className="bg-[#FFFDF7] border-b-2 border-black py-2.5 px-4 sm:px-6 lg:px-8">
+      <div className="bg-[#FFFDF7] border-b-2 border-black py-2 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
           {/* Action Cluster: Mobile Helpline, Apply for Franchise, FAQ & Admin */}
-          <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             {/* Official Phone Helpline Button */}
             <a
               id="sub-header-call-btn"
@@ -154,35 +154,21 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPath = '/', onNavigate })
               </div>
             </a>
 
-            {/* Apply for Franchise Button - Placed directly below header next to/below mobile number */}
+            {/* Apply for Franchise Button - Prominent Action CTA */}
             <button
               id="sub-header-apply-cta"
               onClick={() => handleNavClick('/inquiry')}
-              className="inline-flex items-center gap-2 px-4 sm:px-5 py-1.5 rounded-full bg-[#FF5C00] hover:bg-[#ff4500] text-white text-xs font-black uppercase tracking-wider border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer whitespace-nowrap"
+              className="inline-flex items-center gap-2 px-4 sm:px-5 py-1.5 rounded-full bg-[#FF5C00] hover:bg-[#ff4500] text-white text-xs font-black uppercase tracking-wider border-2 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer whitespace-nowrap"
             >
               <span>Apply for Franchise</span>
               <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-
-            {/* Standard LOI Submission & Review Button */}
-            <button
-              id="sub-header-loi-btn"
-              onClick={() => handleNavClick('/loi')}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-black uppercase tracking-wider border-2 transition-all ${
-                currentPath === '/loi'
-                  ? 'bg-[#FFD100] text-black border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
-                  : 'bg-white hover:bg-neutral-50 text-neutral-800 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:-translate-x-0.5 hover:-translate-y-0.5'
-              }`}
-            >
-              <FileText className="w-3.5 h-3.5 text-[#FF5C00]" />
-              <span>Standard LOI</span>
             </button>
 
             {/* Quick FAQ Button */}
             <button
               id="sub-header-faq-btn"
               onClick={() => handleNavClick('/faq')}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider border-2 transition-all ${
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-black uppercase tracking-wider border-2 transition-all cursor-pointer ${
                 isFaqActive
                   ? 'bg-[#FFD100] text-black border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
                   : 'bg-white hover:bg-neutral-50 text-neutral-800 border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:-translate-x-0.5 hover:-translate-y-0.5'
@@ -196,7 +182,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPath = '/', onNavigate })
             <button
               id="sub-header-admin-btn"
               onClick={() => handleNavClick('/admin')}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-black uppercase tracking-wider border-2 border-black transition-all ${
+              className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-black uppercase tracking-wider border-2 border-black transition-all cursor-pointer ${
                 isAdminRoute
                   ? 'bg-[#00D1FF] text-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
                   : 'bg-white hover:bg-neutral-100 text-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:-translate-x-0.5 hover:-translate-y-0.5 hover:shadow-[3px_3px_0px_0px_rgba(0,0,0,1)]'
@@ -209,7 +195,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentPath = '/', onNavigate })
           </div>
 
           {/* Right Status Badge */}
-          <div className="hidden lg:inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-300 text-[11px] font-bold text-emerald-800">
+          <div className="hidden md:inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-300 text-[11px] font-bold text-emerald-900 shadow-xs">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
             <span>Pune HQ Active (9 AM - 8 PM IST)</span>
           </div>
